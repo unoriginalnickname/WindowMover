@@ -22,8 +22,7 @@ Download or build the executable (see Building below)
 Run WindowMover.exe — it will appear in your system tray
 Optionally enable Start with Windows via the tray icon's right-click menu
 
-Building
-Requirements
+Building Requirements
 
 Visual Studio 2019 or later
 .NET / Windows Forms project targeting Windows
@@ -36,6 +35,7 @@ Build in Release mode (Ctrl+Shift+B)
 The executable will be in bin/Release/
 
 Usage
+
 Right-click the system tray icon to access options:
 
 Start with Windows — toggle auto-launch on login
@@ -44,6 +44,7 @@ About — view controls and current settings
 Exit — close the application
 
 How It Works
+
 Window Mover installs a low-level mouse hook (WH_MOUSE_LL) that intercepts Mouse4/Mouse5 button events system-wide. When a side button is held and middle click is pressed, it moves the foreground window to the target monitor, restoring it first if maximized and re-maximizing it afterward.
 Windows that cannot be moved are automatically skipped: the taskbar, invisible windows, tool windows, very small UI elements, and desktop icons.
 Notes
