@@ -39,13 +39,13 @@ Usage
 Right-click the system tray icon to access options:
 
 Start with Windows — toggle auto-launch on login
-Set Window Size — customize the width and height windows are resized to when moved (default: 800×600)
+Set Window Size — customize the width and height of the windows that are resized when moved (default: 800×600)
 About — view controls and current settings
 Exit — close the application
 
 How It Works
 
-Window Mover installs a low-level mouse hook (WH_MOUSE_LL) that intercepts Mouse4/Mouse5 button events system-wide. When a side button is held and middle click is pressed, it moves the foreground window to the target monitor, restoring it first if maximized and re-maximizing it afterward.
+Window Mover installs a low-level mouse hook (WH_MOUSE_LL) that intercepts Mouse4/Mouse5 button events system-wide. When a side button is held, and the middle click is pressed, it moves the foreground window to the target monitor, restoring it first if maximized and re-maximizing it afterward.
 Windows that cannot be moved are automatically skipped: the taskbar, invisible windows, tool windows, very small UI elements, and desktop icons.
 Notes
 
