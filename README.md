@@ -1,6 +1,7 @@
 Window Mover
 
 A lightweight Windows system tray utility that lets you quickly move windows between monitors using your mouse side buttons.
+
 Features
 
 Move any window to the next monitor with a simple button combo
