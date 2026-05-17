@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using Microsoft.Win32;
+using System.IO;
 
 // Window Mover - A system tray utility that moves windows between monitors
 // Controls: Mouse4/Mouse5 + Mouse3 (middle click) to move windows
@@ -141,6 +142,16 @@ class Program
             Visible = true
         };
 
+        // After the tray icon exists, perform cleanup and notify user if entries were removed
+        var cleanupResult = CleanupOldRunEntries();
+        if (cleanupResult.RemovedCount > 0)
+        {
+            string msg = cleanupResult.RemovedCount == 1
+                ? $"Removed 1 old startup entry for WindowMover." 
+                : $"Removed {cleanupResult.RemovedCount} old startup entries for WindowMover.";
+            trayIcon.ShowBalloonTip(5000, "Window Mover", msg, ToolTipIcon.Info);
+        }
+
         // Run the message loop (keeps app alive in system tray)
         Application.Run();
 
@@ -274,7 +285,39 @@ class Program
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false);
-            return key?.GetValue("WindowMover") != null;
+            if (key == null) return false;
+
+            var val = key.GetValue("WindowMover") as string;
+            if (string.IsNullOrEmpty(val)) return false;
+
+            // Extract the executable path from the stored value. The value may be quoted and/or contain arguments.
+            string firstToken = val.Trim();
+            if (firstToken.StartsWith("\""))
+            {
+                // If quoted, find the closing quote
+                int endQuote = firstToken.IndexOf('"', 1);
+                if (endQuote > 0)
+                    firstToken = firstToken.Substring(1, endQuote - 1);
+            }
+            else
+            {
+                // Not quoted: take up to first space (arguments may follow)
+                int sp = firstToken.IndexOf(' ');
+                if (sp > 0) firstToken = firstToken.Substring(0, sp);
+            }
+            // If the stored path matches the current executable, startup is enabled.
+            if (string.Equals(firstToken, Application.ExecutablePath, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Otherwise, the Run entry points to a different path. Remove it so the app doesn't falsely report enabled.
+            try
+            {
+                using var writeKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+                writeKey?.DeleteValue("WindowMover", false);
+            }
+            catch { }
+
+            return false;
         }
         catch { return false; }
     }
@@ -295,11 +338,87 @@ class Program
             }
             else
             {
-                // Add to startup
-                key.SetValue("WindowMover", Application.ExecutablePath);
+                // Add to startup. Quote the path to handle spaces and store as a string.
+                string exePath = Application.ExecutablePath;
+                string quoted = '"' + exePath + '"';
+                key.SetValue("WindowMover", quoted, RegistryValueKind.String);
                 item.Checked = true;
             }
         }
         catch { }
+    }
+
+    // Result of cleanup operation
+    private struct CleanupResult { public int RemovedCount; public string[] RemovedNames; }
+
+    // Scans HKCU Run values and removes entries pointing to WindowMover.exe in other locations.
+    // Backups removed values under HKCU\SOFTWARE\WindowMover\RemovedRunEntries.
+    private static CleanupResult CleanupOldRunEntries()
+    {
+        var removed = new List<string>();
+        try
+        {
+            string currentExe = Application.ExecutablePath;
+            string currentFile = Path.GetFileName(currentExe);
+
+            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+            if (key == null) return new CleanupResult { RemovedCount = 0, RemovedNames = Array.Empty<string>() };
+
+            foreach (var name in key.GetValueNames())
+            {
+                try
+                {
+                    var obj = key.GetValue(name);
+                    if (!(obj is string val) || string.IsNullOrWhiteSpace(val)) continue;
+
+                    string firstToken = val.Trim();
+                    if (firstToken.StartsWith("\""))
+                    {
+                        int endQuote = firstToken.IndexOf('"', 1);
+                        if (endQuote > 0)
+                            firstToken = firstToken.Substring(1, endQuote - 1);
+                    }
+                    else
+                    {
+                        int sp = firstToken.IndexOf(' ');
+                        if (sp > 0) firstToken = firstToken.Substring(0, sp);
+                    }
+
+                    string file = Path.GetFileName(firstToken);
+                    if (!string.Equals(file, currentFile, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    // If paths match, nothing to do
+                    try
+                    {
+                        if (Path.GetFullPath(firstToken).Equals(Path.GetFullPath(currentExe), StringComparison.OrdinalIgnoreCase))
+                            continue;
+                    }
+                    catch { /* ignore path parse issues and proceed to remove if filename matched */ }
+
+                    // Backup the old value
+                    try
+                    {
+                        using var backup = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\WindowMover\RemovedRunEntries");
+                        if (backup != null)
+                        {
+                            string backupName = name;
+                            int i = 1;
+                            while (backup.GetValue(backupName) != null)
+                                backupName = name + "_" + i++;
+                            backup.SetValue(backupName, val, RegistryValueKind.String);
+                        }
+                    }
+                    catch { }
+
+                    // Remove the stale run entry
+                    key.DeleteValue(name, false);
+                    removed.Add(name);
+                }
+                catch { }
+            }
+        }
+        catch { }
+
+        return new CleanupResult { RemovedCount = removed.Count, RemovedNames = removed.ToArray() };
     }
 }
