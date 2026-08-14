@@ -1,66 +1,96 @@
-Window Mover
+# Window Mover
 
-A lightweight Windows system tray utility that lets you quickly move windows between monitors using your mouse side buttons.
+A lightweight Windows system tray utility that moves windows between monitors using
+the side buttons on your mouse.
 
-Features
+## Features
 
-Move any window to the next monitor with a simple button combo
-Move a window directly to whichever monitor your cursor is on
-Runs silently in the system tray — no taskbar clutter
-Optional "Start with Windows" support via the registry
-Configurable default window size for moved windows
-Smart filtering: skips the taskbar, desktop, tooltips, and other system UI
+- Move any window to the next monitor with a button combo
+- Move a window directly to whichever monitor your cursor is on
+- Runs silently in the system tray — no taskbar clutter
+- Optional "Start with Windows" support via the registry
+- Configurable default window size for moved windows
+- Skips the taskbar, desktop, tooltips and other system UI
 
-Controls
-ShortcutActionMouse4 + Middle ClickCycle window to the next monitorMouse5 + Middle ClickCycle window to the next monitorMouse4 + Mouse5 + Middle ClickMove window to the monitor your cursor is on
+## Controls
 
-Mouse4 = the back thumb button, Mouse5 = the forward thumb button (on most mice)
+| Shortcut | Action |
+|---|---|
+| Mouse4 + middle click | Cycle the window to the next monitor |
+| Mouse5 + middle click | Cycle the window to the next monitor |
+| Mouse4 + Mouse5 + middle click | Move the window to the monitor your cursor is on |
 
-Installation
+Mouse4 is the back thumb button and Mouse5 the forward one, on most mice.
 
-Download or build the executable (see Building below)
-Run WindowMover.exe — it will appear in your system tray
-Optionally enable Start with Windows via the tray icon's right-click menu
+The window is captured when you press the side button, not when you middle-click —
+by the time you click, the foreground window may have changed.
 
-Building and testing
+## Installation
 
-Requires the .NET SDK (the app itself targets net10.0-windows, so building it needs Windows). From the repository root:
+1. Download or build the executable (see below).
+2. Run `WindowMover.exe`. It appears in the system tray.
+3. Optionally enable **Start with Windows** from the tray icon's right-click menu.
 
-    dotnet build
-    dotnet test
+## Usage
+
+Right-click the tray icon for:
+
+- **Start with Windows** — toggle auto-launch on login
+- **Set Window Size** — width and height for moved windows (default 800×600)
+- **About** — controls and current settings
+- **Exit**
+
+## How it works
+
+A low-level mouse hook (`WH_MOUSE_LL`) intercepts Mouse4/Mouse5 events system-wide.
+When a side button is held and the middle button is pressed, the captured window
+moves to the target monitor — restored first if it was maximized, and re-maximized
+afterwards.
+
+Windows that cannot sensibly be moved are skipped: the taskbar, invisible windows,
+tool windows, very small UI elements and desktop icons.
+
+## Project layout
+
+| Project | What it is |
+|---|---|
+| `WindowMoverFinal` | The Windows Forms app — P/Invoke, the mouse hook, the tray icon. A thin adapter over the core. |
+| `WindowMover.Core` | The decision logic, plain `net8.0` with no Win32 or WinForms dependency: which windows may move, which monitor is next, where on it a window lands, and what a button combo means. |
+| `WindowMover.Tests` | xUnit tests for the core. They run without a desktop — no monitors or windows needed. |
+
+The split exists so the interesting logic can be tested. Deciding *where a window
+should go* is arithmetic over rectangles and does not need a real monitor; only
+*putting it there* needs Win32. `WindowPlacement.PlanMove` returns a plan —
+target bounds plus whether to restore before and maximize after — and the adapter
+carries it out.
+
+## Building and testing
+
+Requires the .NET SDK. The app targets `net10.0-windows`, so building it needs
+Windows; the core and its tests target `net8.0`.
+
+```
+dotnet build
+dotnet test
+```
 
 To produce the executable:
 
-    dotnet build WindowMoverFinal/WindowMoverFinal.csproj -c Release
+```
+dotnet build WindowMoverFinal/WindowMoverFinal.csproj -c Release
+```
 
-The executable ends up in WindowMoverFinal/bin/Release/net10.0-windows/.
+It lands in `WindowMoverFinal/bin/Release/net10.0-windows/`.
 
-You can also just open WindowMoverFinal.slnx in Visual Studio 2022 or later and build in Release mode (Ctrl+Shift+B).
+You can also open `WindowMoverFinal.slnx` in Visual Studio 2022 or later.
 
-Project layout
+## Notes
 
-WindowMoverFinal — the Windows Forms app: P/Invoke declarations, the low-level mouse hook, the tray icon. A thin adapter over the core.
-WindowMover.Core — the decision logic, targeting plain net8.0 with no Win32 or Windows Forms dependency: which windows may be moved, which monitor is next, where on that monitor a window lands, and what a button combo means.
-WindowMover.Tests — xUnit tests for the core. They run without a desktop, so no monitors or windows are needed to run them.
+- Only one instance runs at a time, enforced with a named mutex.
+- The window size set from the tray menu applies for that session and resets to
+  800×600 on restart.
+- Windows only — it uses the Win32 API through P/Invoke.
 
-Usage
+## License
 
-Right-click the system tray icon to access options:
-
-Start with Windows — toggle auto-launch on login
-Set Window Size — customize the width and height of the windows that are resized when moved (default: 800×600)
-About — view controls and current settings
-Exit — close the application
-
-How It Works
-
-Window Mover installs a low-level mouse hook (WH_MOUSE_LL) that intercepts Mouse4/Mouse5 button events system-wide. When a side button is held, and the middle click is pressed, it moves the foreground window to the target monitor, restoring it first if maximized and re-maximizing it afterward.
-Windows that cannot be moved are automatically skipped: the taskbar, invisible windows, tool windows, very small UI elements, and desktop icons.
-Notes
-
-Only one instance can run at a time (enforced with a named mutex)
-Window size set via the tray menu applies to all subsequent moves in that session; it resets to 800×600 on restart
-Requires Windows (uses Win32 API via P/Invoke)
-
-License
 MIT
