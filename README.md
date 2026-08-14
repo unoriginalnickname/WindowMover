@@ -22,17 +22,26 @@ Download or build the executable (see Building below)
 Run WindowMover.exe — it will appear in your system tray
 Optionally enable Start with Windows via the tray icon's right-click menu
 
-Building Requirements
+Building and testing
 
-Visual Studio 2019 or later
-.NET / Windows Forms project targeting Windows
+Requires the .NET SDK (the app itself targets net10.0-windows, so building it needs Windows). From the repository root:
 
-Steps
+    dotnet build
+    dotnet test
 
-Clone the repository
-Open the solution in Visual Studio
-Build in Release mode (Ctrl+Shift+B)
-The executable will be in bin/Release/
+To produce the executable:
+
+    dotnet build WindowMoverFinal/WindowMoverFinal.csproj -c Release
+
+The executable ends up in WindowMoverFinal/bin/Release/net10.0-windows/.
+
+You can also just open WindowMoverFinal.slnx in Visual Studio 2022 or later and build in Release mode (Ctrl+Shift+B).
+
+Project layout
+
+WindowMoverFinal — the Windows Forms app: P/Invoke declarations, the low-level mouse hook, the tray icon. A thin adapter over the core.
+WindowMover.Core — the decision logic, targeting plain net8.0 with no Win32 or Windows Forms dependency: which windows may be moved, which monitor is next, where on that monitor a window lands, and what a button combo means.
+WindowMover.Tests — xUnit tests for the core. They run without a desktop, so no monitors or windows are needed to run them.
 
 Usage
 
