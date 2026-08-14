@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<!-- Plain net8.0 (not net8.0-windows) on purpose: this library holds the decision
+		     logic only, so the tests can run without a desktop or any Win32 calls. -->
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<RootNamespace>WindowMover.Core</RootNamespace>
+	</PropertyGroup>
+</Project>

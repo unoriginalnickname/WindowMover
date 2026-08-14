@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net10.0-windows</TargetFramework>
@@ -6,4 +6,8 @@
 		<Nullable>enable</Nullable>
 		<UseWindowsForms>true</UseWindowsForms>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\WindowMover.Core\WindowMover.Core.csproj" />
+	</ItemGroup>
 </Project>

@@ -1,9 +1,15 @@
 ﻿using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using System.IO;
+using WindowMover.Core;
 
 // Window Mover - A system tray utility that moves windows between monitors
 // Controls: Mouse4/Mouse5 + Mouse3 (middle click) to move windows
+//
+// This file is the Windows half of the app: the P/Invoke declarations, the mouse hook and
+// the tray icon. The decisions - which window may be moved, which monitor is next, where
+// on that monitor the window goes, what a button combo means - live in WindowMover.Core,
+// which knows nothing about Win32 and can therefore be tested.
 class Program
 {
     // --------------------------- Constants ---------------------------
@@ -23,9 +29,10 @@ class Program
 
     // Application State
     private static IntPtr hookId;                    // Handle to the mouse hook
-    private static bool isMouse4Held, isMouse5Held;  // Track which extra buttons are pressed
     private static NotifyIcon trayIcon;              // System tray icon
-    private static IntPtr capturedWindow;            // Window that was captured when button pressed
+
+    // Remembers which extra buttons are pressed and which window they grabbed
+    private static readonly ButtonComboTracker buttons = new();
 
     // Adjustable window size - default dimensions for moved windows
     private static int WindowWidth = 800;
@@ -173,31 +180,29 @@ class Program
             // Handle extra mouse button press (Mouse 4 or 5)
             if (wParam == (IntPtr)WM_XBUTTONDOWN)
             {
-                IntPtr fg = GetForegroundWindow(); // Get the currently focused window
-                if (xButton == XBUTTON1) { isMouse4Held = true; CaptureWindow(fg); }
-                else if (xButton == XBUTTON2) { isMouse5Held = true; CaptureWindow(fg); }
+                // Grab the focused window now - by the time the user middle-clicks,
+                // something else may have taken focus
+                IntPtr fg = GetForegroundWindow();
+                if (xButton == XBUTTON1) buttons.SideButtonDown(SideButton.Mouse4, WindowToCapture(fg));
+                else if (xButton == XBUTTON2) buttons.SideButtonDown(SideButton.Mouse5, WindowToCapture(fg));
             }
             // Handle extra mouse button release
             else if (wParam == (IntPtr)WM_XBUTTONUP)
             {
-                if (xButton == XBUTTON1) isMouse4Held = false;
-                else if (xButton == XBUTTON2) isMouse5Held = false;
-
-                // Clear captured window when both buttons are released
-                if (!isMouse4Held && !isMouse5Held) capturedWindow = IntPtr.Zero;
+                if (xButton == XBUTTON1) buttons.SideButtonUp(SideButton.Mouse4);
+                else if (xButton == XBUTTON2) buttons.SideButtonUp(SideButton.Mouse5);
             }
-            // Handle middle mouse button click while extra button(s) held
-            else if (wParam == (IntPtr)WM_MBUTTONDOWN && capturedWindow != IntPtr.Zero)
+            // Handle middle mouse button click - the tracker decides what the held buttons mean
+            else if (wParam == (IntPtr)WM_MBUTTONDOWN)
             {
-                // Both Mouse4 and Mouse5 held: move to cursor's current monitor
-                if (isMouse4Held && isMouse5Held)
+                var request = buttons.MiddleButtonDown();
+                if (request.Command == MoveCommand.CursorMonitor)
                 {
                     if (GetCursorPos(out POINT p))
-                        MoveWindowToScreen(capturedWindow, Screen.FromPoint(new Point(p.X, p.Y)));
+                        MoveWindowToScreen(request.Window, Screen.FromPoint(new Point(p.X, p.Y)));
                 }
-                // Only one button held: cycle window to next monitor
-                else if (isMouse4Held || isMouse5Held)
-                    MoveWindowToNextScreen(capturedWindow);
+                else if (request.Command == MoveCommand.NextMonitor)
+                    MoveWindowToNextScreen(request.Window);
             }
         }
         // Pass the event to the next hook in the chain
@@ -205,10 +210,25 @@ class Program
     }
 
     // --------------------------- Window Helpers ---------------------------
-    // Captures a window if it's safe to move (not taskbar, desktop, etc.)
-    private static void CaptureWindow(IntPtr hwnd)
+    // The window to hand to the combo tracker: the given one if we're allowed to move it,
+    // otherwise nothing
+    private static IntPtr WindowToCapture(IntPtr hwnd)
     {
-        capturedWindow = IsSafeMovableWindow(hwnd) ? hwnd : IntPtr.Zero;
+        return IsSafeMovableWindow(hwnd) ? hwnd : IntPtr.Zero;
+    }
+
+    // Reads out everything the filter needs to know about a window
+    private static WindowSnapshot Describe(IntPtr hwnd)
+    {
+        // The desktop's icons and wallpaper are children of the Progman window
+        IntPtr shellWnd = FindWindow("Progman", null);
+
+        return new WindowSnapshot(
+            IsTaskbar: hwnd == FindWindow("Shell_TrayWnd", null),
+            IsVisible: IsWindowVisible(hwnd),
+            ExtendedStyle: GetWindowLong(hwnd, GWL_EXSTYLE),
+            Bounds: GetWindowRect(hwnd, out RECT r) ? ToRectangle(r) : null,
+            IsDesktopChild: GetParent(hwnd) == shellWnd);
     }
 
     // Checks if a window is safe to move (filters out system windows)
@@ -216,49 +236,30 @@ class Program
     {
         if (hwnd == IntPtr.Zero) return false;
 
-        // Don't move the taskbar
-        IntPtr taskbar = FindWindow("Shell_TrayWnd", null);
-        if (hwnd == taskbar) return false;
-
-        // Don't move tool windows (like tooltips)
-        uint exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-        if ((exStyle & WS_EX_TOOLWINDOW) != 0) return false;
-
-        // Don't move invisible windows
-        if (!IsWindowVisible(hwnd)) return false;
-
-        // Don't move tiny windows (likely system UI elements)
-        if (GetWindowRect(hwnd, out RECT r))
-        {
-            if ((r.Right - r.Left) < 50 || (r.Bottom - r.Top) < 50) return false;
-        }
-
-        // Don't move desktop icons or wallpaper
-        IntPtr shellWnd = FindWindow("Progman", null);
-        IntPtr parent = GetParent(hwnd);
-        if (parent == shellWnd) return false;
-
-        return true;
+        return WindowMoveFilter.IsSafeToMove(Describe(hwnd));
     }
+
+    // Converts a Win32 RECT (edges) into a Rectangle (position + size)
+    private static Rectangle ToRectangle(RECT r) =>
+        new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
 
     // Moves a window to a specific screen, centered
     private static void MoveWindowToScreen(IntPtr hwnd, Screen target)
     {
         if (!IsSafeMovableWindow(hwnd)) return;
 
-        // Restore maximized windows before moving
-        bool maximized = IsZoomed(hwnd);
-        if (maximized) ShowWindow(hwnd, SW_RESTORE);
+        var plan = WindowPlacement.PlanMove(target.Bounds, new Size(WindowWidth, WindowHeight), IsZoomed(hwnd));
 
-        // Calculate centered position on target screen
-        int x = target.Bounds.X + (target.Bounds.Width - WindowWidth) / 2;
-        int y = target.Bounds.Y + (target.Bounds.Height - WindowHeight) / 2;
+        // Restore maximized windows before moving - Windows keeps a maximized window on
+        // the monitor it was maximized on
+        if (plan.RestoreBeforeMove) ShowWindow(hwnd, SW_RESTORE);
 
-        // Move and resize the window
-        SetWindowPos(hwnd, IntPtr.Zero, x, y, WindowWidth, WindowHeight, SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(hwnd, IntPtr.Zero,
+            plan.TargetBounds.X, plan.TargetBounds.Y,
+            plan.TargetBounds.Width, plan.TargetBounds.Height,
+            SWP_NOZORDER | SWP_NOACTIVATE);
 
-        // Re-maximize if it was maximized before
-        if (maximized) ShowWindow(hwnd, SW_MAXIMIZE);
+        if (plan.MaximizeAfterMove) ShowWindow(hwnd, SW_MAXIMIZE);
     }
 
     // Cycles a window to the next monitor in the screen array
@@ -267,15 +268,15 @@ class Program
         if (!IsSafeMovableWindow(hwnd)) return;
         if (!GetWindowRect(hwnd, out RECT r)) return;
 
-        // Determine which screen the window is currently on
-        Screen current = Screen.FromRectangle(new Rectangle(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top));
+        // Hand the monitor bounds to the core and let it work out where the window is and
+        // where it goes next
         Screen[] screens = Screen.AllScreens;
-        if (screens.Length < 2) return; // Need at least 2 monitors
+        var layout = new MonitorLayout(Array.ConvertAll(screens, s => s.Bounds));
 
-        // Find current screen index and move to next screen (wraps around)
-        int idx = Array.FindIndex(screens, s => s.DeviceName == current.DeviceName);
-        Screen next = screens[(idx + 1) % screens.Length];
-        MoveWindowToScreen(hwnd, next);
+        int current = layout.IndexOfMonitorShowing(ToRectangle(r));
+        if (!layout.TryGetNextMonitorIndex(current, out int next)) return; // needs at least 2 monitors
+
+        MoveWindowToScreen(hwnd, screens[next]);
     }
 
     // --------------------------- Startup Helpers ---------------------------

@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="WindowMoverFinal/WindowMoverFinal.csproj" />
+  <Project Path="WindowMover.Core/WindowMover.Core.csproj" />
 </Solution>
