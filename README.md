@@ -58,11 +58,13 @@ tool windows, very small UI elements and desktop icons.
 | `WindowMover.Core` | The decision logic, plain `net8.0` with no Win32 or WinForms dependency: which windows may move, which monitor is next, where on it a window lands, and what a button combo means. |
 | `WindowMover.Tests` | xUnit tests for the core. They run without a desktop — no monitors or windows needed. |
 
-The split exists so the interesting logic can be tested. Deciding *where a window
-should go* is arithmetic over rectangles and does not need a real monitor; only
-*putting it there* needs Win32. `WindowPlacement.PlanMove` returns a plan —
-target bounds plus whether to restore before and maximize after — and the adapter
-carries it out.
+The split exists so the interesting logic can be tested. Choosing where a window
+should go is geometry, and geometry needs no monitor. Only moving it there needs
+Win32.
+
+That is why `WindowPlacement.PlanMove` returns a plan — target bounds, plus
+whether to restore before and maximize after — instead of moving the window
+itself. The adapter carries the plan out.
 
 ## Building and testing
 
