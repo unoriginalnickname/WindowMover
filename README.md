@@ -42,14 +42,10 @@ re-maximized afterwards.
 | `WindowMover.Core` | The logic that decides which window moves and where it lands |
 | `WindowMover.Tests` | xUnit tests for the core |
 
-`WindowMover.Core` has no Win32 or Windows Forms dependency, so its tests run
-without a desktop. `WindowPlacement.PlanMove` returns target bounds and whether to
-restore or maximize, and the app carries that out.
-
 ## Building and testing
 
 Requires the .NET SDK. The app targets `net10.0-windows` and must be built on
-Windows. The core and its tests target `net8.0`.
+Windows.
 
 ```
 dotnet build
