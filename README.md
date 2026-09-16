@@ -3,6 +3,32 @@
 A Windows system tray utility that moves windows between monitors using the side
 buttons on your mouse.
 
+## Why
+
+Windows can move a focused window to the adjacent monitor with `Win+Shift+Arrow`,
+but only one hop at a time, in a fixed direction. Nothing built-in sends a window
+straight to whichever monitor the cursor is on.
+
+What exists instead, and where they fall short:
+
+- **DisplayFusion** — its Mouse Cursor Functions move the cursor, not windows. The
+  closest match is a custom script their staff wrote for one user on request, not
+  a shipped feature.
+- **PowerToys** — an open, related request,
+  [#22165 "Gather Windows"](https://github.com/microsoft/PowerToys/issues/22165)
+  (open since November 2022), framed around remote-desktop scenarios rather than
+  cursor position specifically. Nothing shipped yet.
+- **AutoHotkey** — [scripts exist](https://www.autohotkey.com/boards/viewtopic.php?t=76122)
+  that do this, but with real gaps: no monitor-bounds check (a window can end up
+  straddling two monitors), no filtering of unsafe windows (taskbar, tool windows,
+  tiny system UI), and maximized windows are skipped entirely rather than
+  restored, moved and remaximized.
+
+WindowMover is this feature on its own: free, five files, triggered by a mouse
+chord (hold a side button, middle-click) instead of a hotkey or a script to write
+and maintain. `WindowMoveFilter`, `MonitorLayout` and `WindowPlacement` are covered
+by the test suite against exactly the gaps listed above.
+
 ## Controls
 
 | Shortcut | Action |
