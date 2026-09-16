@@ -14,12 +14,11 @@ public readonly record struct WindowMovePlan(
 
 public static class WindowPlacement
 {
-    // Work out where a window should end up on the given monitor.
+    // Work out where a window should end up on the given monitor, at the given size.
     //
-    // Moved windows always get the configured size (default 800x600) and are centred on
-    // the monitor, so the window's own current size does not come into it. A window
-    // larger than the monitor ends up hanging off both edges evenly, which is what
-    // centring means and matches what the app has always done.
+    // The window is centred on the monitor; a window larger than the monitor ends up
+    // hanging off both edges evenly, which is what centring means. Where windowSize comes
+    // from is the caller's decision - see ProportionalSize below for the usual case.
     public static WindowMovePlan PlanMove(Rectangle monitorBounds, Size windowSize, bool isMaximized)
     {
         int x = monitorBounds.X + (monitorBounds.Width - windowSize.Width) / 2;
@@ -29,5 +28,22 @@ public static class WindowPlacement
             new Rectangle(x, y, windowSize.Width, windowSize.Height),
             RestoreBeforeMove: isMaximized,
             MaximizeAfterMove: isMaximized);
+    }
+
+    // The size a window should become when it moves from one monitor to another, so it
+    // keeps occupying the same percentage of screen it did before. Plain pixel size (what
+    // drag-and-drop keeps) looks wrong once the two monitors have different resolutions -
+    // a window sized for a small monitor looks tiny dragged onto a much bigger one, and
+    // hangs off the edges the other way round. Width and height scale independently
+    // against each axis of the target monitor, so a window's own aspect ratio only
+    // changes if the two monitors' aspect ratios differ from each other.
+    public static Size ProportionalSize(Rectangle sourceMonitorBounds, Size currentWindowSize, Rectangle targetMonitorBounds)
+    {
+        double widthRatio = (double)currentWindowSize.Width / sourceMonitorBounds.Width;
+        double heightRatio = (double)currentWindowSize.Height / sourceMonitorBounds.Height;
+
+        return new Size(
+            (int)Math.Round(targetMonitorBounds.Width * widthRatio),
+            (int)Math.Round(targetMonitorBounds.Height * heightRatio));
     }
 }

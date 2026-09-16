@@ -77,15 +77,34 @@ class Program
     [DllImport("user32.dll")][return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT lpPoint);
     [DllImport("user32.dll")] private static extern IntPtr GetParent(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromRect(ref RECT lprc, uint dwFlags);
+    [DllImport("Shcore.dll")] private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+    [DllImport("user32.dll")] private static extern IntPtr GetWindowDpiAwarenessContext(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern int GetAwarenessFromDpiAwarenessContext(IntPtr dpiContext);
 
     // Window style constants
     private const int GWL_EXSTYLE = -20;             // Extended window style index
     private const uint WS_EX_TOOLWINDOW = 0x00000080; // Tool window style (skip taskbar)
 
+    // DPI query constants
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+    private const int MDT_EFFECTIVE_DPI = 0;
+    private const int DPI_AWARENESS_PER_MONITOR_AWARE = 2;
+
     // --------------------------- Main ---------------------------
     [STAThread]
     static void Main()
     {
+        // Must run before any window handle is created (including the "already running"
+        // MessageBox below) - once one exists, the DPI mode is locked in. Without this the
+        // app defaults to SystemAware, which reports monitor/window sizes in a single
+        // shared logical space rather than each monitor's true physical pixels - on a
+        // multi-monitor setup where monitors have different Windows scaling percentages,
+        // that makes a moved window's size come out wrong on whichever monitor's scale
+        // differs from the system's.
+        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+
         // Ensure only one instance of the application runs at a time
         using var mutex = new System.Threading.Mutex(true, "WindowMover_SingleInstance", out bool createdNew);
         if (!createdNew)
@@ -248,7 +267,10 @@ class Program
     {
         if (!IsSafeMovableWindow(hwnd)) return;
 
-        var plan = WindowPlacement.PlanMove(target.Bounds, new Size(WindowWidth, WindowHeight), IsZoomed(hwnd));
+        bool maximized = IsZoomed(hwnd);
+        Size windowSize = DetermineWindowSize(hwnd, target, maximized);
+
+        var plan = WindowPlacement.PlanMove(target.Bounds, windowSize, maximized);
 
         // Restore maximized windows before moving - Windows keeps a maximized window on
         // the monitor it was maximized on
@@ -261,6 +283,63 @@ class Program
 
         if (plan.MaximizeAfterMove) ShowWindow(hwnd, SW_MAXIMIZE);
     }
+
+    // The size to move a window to. A maximized window's size barely matters (it fills the
+    // monitor either way, and this just becomes its remembered restored size), so it keeps
+    // using the configured default. A normal window keeps the same percentage of screen it
+    // had before, so it does not look tiny dragged onto a much bigger monitor or hang off
+    // the edges of a much smaller one - see WindowPlacement.ProportionalSize. Falls back to
+    // the configured default when the window's current bounds or monitor cannot be
+    // determined, same as the app has always done.
+    private static Size DetermineWindowSize(IntPtr hwnd, Screen target, bool maximized)
+    {
+        var fallback = new Size(WindowWidth, WindowHeight);
+        if (maximized) return fallback;
+
+        if (!GetWindowRect(hwnd, out RECT r)) return fallback;
+
+        Screen[] screens = Screen.AllScreens;
+        var layout = new MonitorLayout(Array.ConvertAll(screens, s => s.Bounds));
+        int sourceIndex = layout.IndexOfMonitorShowing(ToRectangle(r));
+        if (sourceIndex < 0) return fallback; // no monitors at all
+
+        Size size = WindowPlacement.ProportionalSize(layout[sourceIndex], ToRectangle(r).Size, target.Bounds);
+        return CompensateForTargetDpiResponse(hwnd, size, target.Bounds);
+    }
+
+    // Crossing onto a monitor with a different DPI scale, a per-monitor-DPI-aware target
+    // window (most modern apps) gets WM_DPICHANGED and, by default, resizes itself by
+    // (targetDpi / sourceDpi) - asynchronously, after this app's own SetWindowPos already
+    // returned, silently overriding whatever size was just set. Pre-dividing by that same
+    // ratio here cancels it out. This only helps windows using the *default* linear
+    // response - at least one real app (Windows Terminal, which keeps its row/column count
+    // constant instead) is confirmed to override it with its own logic, so this improves
+    // the common case without being a guaranteed fix for every app.
+    private static Size CompensateForTargetDpiResponse(IntPtr hwnd, Size intendedSize, Rectangle targetMonitorBounds)
+    {
+        // Only per-monitor-DPI-aware windows receive WM_DPICHANGED at all - compensating
+        // for a window that never reacts to it would introduce an error where none exists.
+        int awareness = GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(hwnd));
+        if (awareness != DPI_AWARENESS_PER_MONITOR_AWARE) return intendedSize;
+
+        // Read the source monitor before the window moves - MonitorFromWindow still
+        // reflects where it currently is at this point in the call chain.
+        IntPtr sourceMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        RECT targetRect = ToRect(targetMonitorBounds);
+        IntPtr targetMonitor = MonitorFromRect(ref targetRect, MONITOR_DEFAULTTONEAREST);
+
+        if (GetDpiForMonitor(sourceMonitor, MDT_EFFECTIVE_DPI, out uint sourceDpiX, out uint sourceDpiY) != 0) return intendedSize;
+        if (GetDpiForMonitor(targetMonitor, MDT_EFFECTIVE_DPI, out uint targetDpiX, out uint targetDpiY) != 0) return intendedSize;
+
+        if (sourceDpiX == targetDpiX && sourceDpiY == targetDpiY) return intendedSize; // no DPI boundary crossed
+
+        return new Size(
+            (int)Math.Round(intendedSize.Width * (double)sourceDpiX / targetDpiX),
+            (int)Math.Round(intendedSize.Height * (double)sourceDpiY / targetDpiY));
+    }
+
+    // Converts a Rectangle (position + size) back into a Win32 RECT (edges)
+    private static RECT ToRect(Rectangle r) => new RECT { Left = r.Left, Top = r.Top, Right = r.Right, Bottom = r.Bottom };
 
     // Cycles a window to the next monitor in the screen array
     private static void MoveWindowToNextScreen(IntPtr hwnd)

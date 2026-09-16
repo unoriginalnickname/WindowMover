@@ -83,4 +83,64 @@ public class WindowPlacementTests
 
         Assert.Equal(new Size(1280, 720), plan.TargetBounds.Size);
     }
+
+    [Fact]
+    public void Matching_monitor_resolutions_keep_the_window_the_same_pixel_size()
+    {
+        var source = new Rectangle(0, 0, 1920, 1080);
+        var target = new Rectangle(1920, 0, 1920, 1080);
+
+        var size = WindowPlacement.ProportionalSize(source, new Size(960, 540), target);
+
+        Assert.Equal(new Size(960, 540), size);
+    }
+
+    [Fact]
+    public void Moving_to_a_smaller_monitor_shrinks_the_window_to_match_the_percentage()
+    {
+        // Half the width and height of a 1920x1080 monitor, moved to a 1280x720 monitor:
+        // should land at half of 1280x720, not stay 960x540.
+        var source = new Rectangle(0, 0, 1920, 1080);
+        var target = new Rectangle(0, 0, 1280, 720);
+
+        var size = WindowPlacement.ProportionalSize(source, new Size(960, 540), target);
+
+        Assert.Equal(new Size(640, 360), size);
+    }
+
+    [Fact]
+    public void Moving_to_a_bigger_monitor_grows_the_window_to_match_the_percentage()
+    {
+        var source = new Rectangle(0, 0, 1280, 720);
+        var target = new Rectangle(0, 0, 1920, 1080);
+
+        var size = WindowPlacement.ProportionalSize(source, new Size(640, 360), target);
+
+        Assert.Equal(new Size(960, 540), size);
+    }
+
+    [Fact]
+    public void Width_and_height_scale_independently_against_each_monitors_own_axis()
+    {
+        // An ultrawide (2560x1080) source next to a standard 1920x1080 target: the width
+        // ratio and height ratio differ, so the window's own aspect ratio changes to match.
+        var source = new Rectangle(0, 0, 2560, 1080);
+        var target = new Rectangle(0, 0, 1920, 1080);
+
+        // Half the ultrawide's width, a third of its height.
+        var size = WindowPlacement.ProportionalSize(source, new Size(1280, 360), target);
+
+        Assert.Equal(new Size(960, 360), size);
+    }
+
+    [Fact]
+    public void A_full_screen_sized_window_stays_full_screen_sized_on_the_new_monitor()
+    {
+        var source = new Rectangle(0, 0, 1920, 1080);
+        var target = new Rectangle(0, 0, 3840, 2160);
+
+        var size = WindowPlacement.ProportionalSize(source, new Size(1920, 1080), target);
+
+        Assert.Equal(new Size(3840, 2160), size);
+    }
 }
