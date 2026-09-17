@@ -29,6 +29,12 @@ internal static class NativeMethods
     public const int MDT_EFFECTIVE_DPI = 0;
     public const int DPI_AWARENESS_PER_MONITOR_AWARE = 2;
 
+    // WinEvent constants - used to notice when a user starts dragging a window's own
+    // move/resize border, as distinct from a program calling SetWindowPos on it.
+    public const uint EVENT_SYSTEM_MOVESIZESTART = 0x000A;
+    public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+    public const int OBJID_WINDOW = 0;
+
     // --------------------------- Structs ---------------------------
     // Structure for screen coordinates
     [StructLayout(LayoutKind.Sequential)]
@@ -66,6 +72,9 @@ internal static class NativeMethods
     // Delegate for mouse hook callback function
     public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 
+    // Delegate for WinEvent callback function (EVENT_SYSTEM_MOVESIZESTART watcher)
+    public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
     [DllImport("user32.dll")] public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
     [DllImport("user32.dll")] public static extern bool UnhookWindowsHookEx(IntPtr hhk);
     [DllImport("user32.dll")] public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
@@ -89,6 +98,8 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+    [DllImport("user32.dll")] public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
     // --------------------------- Conversions ---------------------------
     // Converts a Win32 RECT (edges) into a Rectangle (position + size)

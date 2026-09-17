@@ -34,6 +34,10 @@ class Program
         // Install low-level mouse hook to intercept all mouse events
         MouseHook.Install();
 
+        // Watch for the user manually grabbing a window's move/resize border, so a pending
+        // DPI self-correction backs off instead of fighting them mid-drag
+        DpiCorrectionScheduler.InstallManualResizeWatcher();
+
         // Create and display system tray icon and context menu
         var trayIcon = TrayApp.Create();
 
@@ -52,6 +56,7 @@ class Program
 
         // Cleanup on exit
         MouseHook.Uninstall();
+        DpiCorrectionScheduler.UninstallManualResizeWatcher();
         trayIcon?.Dispose();
     }
 }

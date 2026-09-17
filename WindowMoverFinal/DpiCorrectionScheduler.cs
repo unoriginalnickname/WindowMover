@@ -10,6 +10,45 @@ using static NativeMethods;
 // nothing.
 internal static class DpiCorrectionScheduler
 {
+    // Watches for the user grabbing a window's own move/resize border while a correction is
+    // pending for it. EVENT_SYSTEM_MOVESIZESTART only fires for that interactive drag loop -
+    // a program calling SetWindowPos (an app self-correcting, or this class's own corrections)
+    // never triggers it - so it cleanly tells "the user is now in control of this window"
+    // apart from "the app resized itself" without guessing from position/size alone. Confirmed
+    // needed: without this, a pending correction would fight a manual resize mid-drag, snapping
+    // the window back to the DPI-move's target size after the user had already changed it.
+    private static IntPtr manualResizeHookId;
+
+    // SetWinEventHook only keeps the delegate alive via the unmanaged callback pointer, not a
+    // managed reference - same GC-collection hazard as MouseHook's hookProc, same fix.
+    private static WinEventDelegate? manualResizeHookProc;
+
+    public static void InstallManualResizeWatcher()
+    {
+        manualResizeHookProc = OnManualMoveOrResizeStart;
+        manualResizeHookId = SetWinEventHook(
+            EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZESTART,
+            IntPtr.Zero, manualResizeHookProc, 0, 0, WINEVENT_OUTOFCONTEXT);
+    }
+
+    public static void UninstallManualResizeWatcher()
+    {
+        if (manualResizeHookId != IntPtr.Zero) UnhookWinEvent(manualResizeHookId);
+    }
+
+    private static void OnManualMoveOrResizeStart(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+    {
+        // idObject identifies which part of the window started moving/sizing - OBJID_WINDOW
+        // means the window itself, as opposed to some child control reporting its own event.
+        if (idObject != OBJID_WINDOW) return;
+        if (!pendingDpiCorrections.TryGetValue(hwnd, out var pending)) return;
+
+        pending.Timer.Stop();
+        pending.Timer.Dispose();
+        pendingDpiCorrections.Remove(hwnd);
+        DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: abandoned - user began an interactive move/resize");
+    }
+
     // Keyed by hwnd, not a flat list: confirmed bug (ISSUES.md #3) - moving the same window
     // again before its previous correction chain finished left the old chain running
     // unaware a newer move had superseded it, so it would later fire and yank the window back
@@ -18,10 +57,7 @@ internal static class DpiCorrectionScheduler
     // first (see ResolvePendingDpiCorrection) rather than just cancelling it silently.
     private static readonly Dictionary<IntPtr, (System.Windows.Forms.Timer Timer, Rectangle FallbackBounds)> pendingDpiCorrections = new();
 
-    // Most apps that self-correct do so almost immediately, well under a second - checking
-    // fast first lets that common case resolve near-instantly instead of always paying the
-    // full safe delay below. This check never forces anything; a miss just falls through to
-    // the slower, already-proven-safe path.
+    // Interval between the read-only checks in ScheduleCheck, below.
     private const int FastCheckDelayMs = 150;
 
     // The delay can't be "correct" - there's no way to know a given app's own correction time
@@ -84,12 +120,27 @@ internal static class DpiCorrectionScheduler
     {
         // Any prior pending correction for this window was already resolved at the top of
         // MoveWindowToScreen, before this move's own bounds were even calculated.
-        var fastCheck = new System.Windows.Forms.Timer { Interval = FastCheckDelayMs };
-        fastCheck.Tick += (s, e) =>
+        ScheduleCheck(hwnd, fallbackBounds, previousActual: null);
+    }
+
+    // Confirmed via windowmover-debug.log on a real DPI-crossing move: a self-resizing app's
+    // mistake is often already final by the very first check and then just sits there -
+    // Explorer landed on exactly its old size times the monitor's DPI ratio, immediately, and
+    // never moved again across five checks spanning 750ms. Waiting out the full 1500ms retry
+    // cadence to fix a value that's already stable adds visible delay for nothing - that
+    // cadence exists to avoid racing an app that's still actively correcting itself, not one
+    // that's already finished (however wrongly). So: check twice, a beat apart. If the wrong
+    // size is identical both times, nothing is left to race - force it immediately. Only when
+    // it's still visibly changing between checks (genuine risk of racing an in-progress
+    // correction) does control pass to the slower, proven-safe retry chain.
+    private static void ScheduleCheck(IntPtr hwnd, Rectangle fallbackBounds, Rectangle? previousActual)
+    {
+        var timer = new System.Windows.Forms.Timer { Interval = FastCheckDelayMs };
+        timer.Tick += (s, e) =>
         {
-            fastCheck.Stop();
-            UnregisterDpiCorrectionTimer(hwnd, fastCheck);
-            fastCheck.Dispose();
+            timer.Stop();
+            UnregisterDpiCorrectionTimer(hwnd, timer);
+            timer.Dispose();
 
             string process = DebugLog.DescribeWindowProcess(hwnd);
             if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone (fast check)"); return; }
@@ -98,14 +149,32 @@ internal static class DpiCorrectionScheduler
             Rectangle actual = ToRectangle(r);
             if (RoughlyEqual(actual, fallbackBounds))
             {
-                DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={fallbackBounds} (fast check, {FastCheckDelayMs}ms)");
+                DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={fallbackBounds} (fast check)");
                 return;
             }
 
-            ScheduleDpiCorrectionRetries(hwnd, fallbackBounds);
+            if (previousActual is Rectangle prev && RoughlyEqual(actual, prev))
+            {
+                bool applied = SetWindowPos(hwnd, IntPtr.Zero,
+                    fallbackBounds.X, fallbackBounds.Y, fallbackBounds.Width, fallbackBounds.Height,
+                    SWP_NOZORDER | SWP_NOACTIVATE);
+                DebugLog.Write($"DPI correction [{process}]: actual={actual} stable across two checks -> fallback={fallbackBounds}, applied={applied} (fast path)");
+                return;
+            }
+
+            if (previousActual is null)
+            {
+                DebugLog.Write($"DPI correction [{process}]: actual={actual} off fallback={fallbackBounds} (first check) - checking again to see if it's still moving");
+                ScheduleCheck(hwnd, fallbackBounds, actual);
+            }
+            else
+            {
+                DebugLog.Write($"DPI correction [{process}]: actual={actual} still changing (was {previousActual}) - falling to slow retry cadence");
+                ScheduleDpiCorrectionRetries(hwnd, fallbackBounds);
+            }
         };
-        pendingDpiCorrections[hwnd] = (fastCheck, fallbackBounds);
-        fastCheck.Start();
+        pendingDpiCorrections[hwnd] = (timer, fallbackBounds);
+        timer.Start();
     }
 
     private static void ScheduleDpiCorrectionRetries(IntPtr hwnd, Rectangle fallbackBounds, int attemptsLeft = MaxDpiCorrectionAttempts)
