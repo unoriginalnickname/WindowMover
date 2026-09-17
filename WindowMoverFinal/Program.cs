@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using System.IO;
+using System.Diagnostics;
 using WindowMover.Core;
 
 // Window Mover - A system tray utility that moves windows between monitors
@@ -39,6 +40,35 @@ class Program
     // case a window's current bounds or monitor can't be read - see DetermineWindowSize.
     private const int WindowWidth = 800;
     private const int WindowHeight = 600;
+
+    // --------------------------- Diagnostics ---------------------------
+    // A lightweight, always-on log for runtime behavior that's hard to reproduce and that unit
+    // tests can't cover, since it lives in the untestable Win32 half - e.g. the per-app DPI
+    // self-correction quirks in ISSUES.md #3 (VLC/Steam vs. Chrome/Explorer). Best-effort only:
+    // a logging failure must never affect a real move.
+    private static class DebugLog
+    {
+        private static readonly string LogPath = Path.Combine(Path.GetTempPath(), "windowmover-debug.log");
+
+        public static void Write(string message)
+        {
+            try { File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {message}\n"); }
+            catch { /* best-effort only */ }
+        }
+    }
+
+    // Identifies which app a window belongs to for log messages - without this, log entries
+    // for different apps are indistinguishable whenever their windows happen to end up the
+    // same size, which cost real time and a wrong conclusion once already (see ISSUES.md #3).
+    private static string DescribeWindowProcess(IntPtr hwnd)
+    {
+        try
+        {
+            GetWindowThreadProcessId(hwnd, out uint pid);
+            return Process.GetProcessById((int)pid).ProcessName;
+        }
+        catch { return "unknown"; }
+    }
 
     // --------------------------- Structs ---------------------------
     // Structure for screen coordinates
@@ -99,6 +129,7 @@ class Program
     [DllImport("user32.dll")] private static extern int GetAwarenessFromDpiAwarenessContext(IntPtr dpiContext);
     [DllImport("user32.dll")] private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] private static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     // Window style constants
     private const int GWL_EXSTYLE = -20;             // Extended window style index
@@ -265,12 +296,167 @@ class Program
             return;
         }
 
-        Rectangle bounds = DetermineWindowBounds(hwnd, target);
+        // Must happen before DetermineWindowBounds reads the window's current size below - see
+        // ISSUES.md #3. A rapid second move on a window that still has a DPI correction pending
+        // from the previous move would otherwise read a transient, not-yet-settled size as its
+        // proportional baseline, compounding an error into the new move.
+        ResolvePendingDpiCorrection(hwnd);
+
+        var (bounds, watchForSelfResize) = DetermineWindowBounds(hwnd, target);
 
         SetWindowPos(hwnd, IntPtr.Zero,
             bounds.X, bounds.Y, bounds.Width, bounds.Height,
             SWP_NOZORDER | SWP_NOACTIVATE);
+
+        if (watchForSelfResize)
+            ScheduleDpiCompensationCheck(hwnd, bounds);
     }
+
+    // Some per-monitor-DPI-aware apps resize themselves the moment they detect a DPI change,
+    // regardless of what size they're handed - confirmed in ISSUES.md #3 (Chrome, Explorer do;
+    // VLC, Steam don't, aside from Steam's own separate minimum-size limit). Rather than guess
+    // a size that cancels out whatever an app might do, this always sets the plain correct
+    // size directly, then reactively watches for exactly that: check whether the window is
+    // still at the size it was given, and correct it back if an app changed it away. If it's
+    // correct - the app self-corrected, or nothing needed correcting - this does nothing.
+    //
+    // Keyed by hwnd, not a flat list: confirmed bug (ISSUES.md #3) - moving the same window
+    // again before its previous correction chain finished left the old chain running
+    // unaware a newer move had superseded it, so it would later fire and yank the window back
+    // to the earlier move's stale target, visibly "queuing up" jumps between screens. Starting
+    // a new chain for a window now always resolves whatever chain is already running for it
+    // first (see ResolvePendingDpiCorrection) rather than just cancelling it silently.
+    private static readonly Dictionary<IntPtr, (System.Windows.Forms.Timer Timer, Rectangle FallbackBounds)> pendingDpiCorrections = new();
+
+    // Also confirmed via ISSUES.md #3 (VLC): a second, subtler bug from the same root cause -
+    // a brand new move reads the window's *current* size as its proportional baseline, and if
+    // an earlier move's correction hadn't actually settled yet, that "current" size is a
+    // transient, still-wrong value - so the error compounds across each quick move (e.g. an
+    // extra 0.8x deflate bleeding through from an unsettled prior move). Stopping the old
+    // timer alone doesn't fix this; the window itself must be forced to its known-correct
+    // target *before* the new move reads its bounds, so every move always starts from a
+    // settled, correct baseline.
+    private static void ResolvePendingDpiCorrection(IntPtr hwnd)
+    {
+        if (!pendingDpiCorrections.TryGetValue(hwnd, out var pending)) return;
+
+        pending.Timer.Stop();
+        pending.Timer.Dispose();
+        pendingDpiCorrections.Remove(hwnd);
+
+        if (!GetWindowRect(hwnd, out RECT r)) return; // window gone
+        if (RoughlyEqual(ToRectangle(r), pending.FallbackBounds)) return; // already correct
+
+        SetWindowPos(hwnd, IntPtr.Zero,
+            pending.FallbackBounds.X, pending.FallbackBounds.Y,
+            pending.FallbackBounds.Width, pending.FallbackBounds.Height,
+            SWP_NOZORDER | SWP_NOACTIVATE);
+        DebugLog.Write($"DPI correction [{DescribeWindowProcess(hwnd)}]: resolved pending correction early to fallback={pending.FallbackBounds} before a new move");
+    }
+
+    // Only removes the dictionary entry if it still points at this exact timer - a timer that
+    // was already superseded (and resolved) by ResolvePendingDpiCorrection must not remove a
+    // newer chain's entry when its own (already-cancelled) Tick still fires.
+    private static void UnregisterDpiCorrectionTimer(IntPtr hwnd, System.Windows.Forms.Timer timer)
+    {
+        if (pendingDpiCorrections.TryGetValue(hwnd, out var current) && current.Timer == timer)
+            pendingDpiCorrections.Remove(hwnd);
+    }
+
+    // Most apps that self-correct do so almost immediately, well under a second - checking
+    // fast first lets that common case resolve near-instantly instead of always paying the
+    // full safe delay below. This check never forces anything; a miss just falls through to
+    // the slower, already-proven-safe path.
+    private const int FastCheckDelayMs = 150;
+
+    private static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds)
+    {
+        // Any prior pending correction for this window was already resolved at the top of
+        // MoveWindowToScreen, before this move's own bounds were even calculated.
+        var fastCheck = new System.Windows.Forms.Timer { Interval = FastCheckDelayMs };
+        fastCheck.Tick += (s, e) =>
+        {
+            fastCheck.Stop();
+            UnregisterDpiCorrectionTimer(hwnd, fastCheck);
+            fastCheck.Dispose();
+
+            string process = DescribeWindowProcess(hwnd);
+            if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone (fast check)"); return; }
+
+            Rectangle actual = ToRectangle(r);
+            if (RoughlyEqual(actual, fallbackBounds))
+            {
+                DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={fallbackBounds} (fast check, {FastCheckDelayMs}ms)");
+                return;
+            }
+
+            ScheduleDpiCorrectionRetries(hwnd, fallbackBounds);
+        };
+        pendingDpiCorrections[hwnd] = (fastCheck, fallbackBounds);
+        fastCheck.Start();
+    }
+
+    // The delay can't be "correct" - there's no way to know a given app's own correction time
+    // in advance, so this is a race no fixed delay fully eliminates, only makes unlikely. It's
+    // a deliberately one-sided bet: a genuinely non-cooperating app (VLC/Steam) was already
+    // stuck wrong indefinitely before this existed, so waiting longer before fixing it costs
+    // nothing; a cooperating app (Chrome/Explorer) just needs the delay to reliably outlast its
+    // own correction. 400ms was confirmed too short - it raced ahead of Chrome's own correction
+    // and compounded into a wrong result (this method's fallback landing, then Chrome's own
+    // shrink applying again on top of it). 1500ms leaves much more margin, confirmed safe.
+    //
+    // Bounded retry count - see ISSUES.md #3 (Steam). A few retries gives real margin against
+    // timing variance without retrying forever against a window that's genuinely never going
+    // to reach the target (e.g. Steam's own enforced minimum size).
+    private const int MaxDpiCorrectionAttempts = 3;
+
+    private static void ScheduleDpiCorrectionRetries(IntPtr hwnd, Rectangle fallbackBounds, int attemptsLeft = MaxDpiCorrectionAttempts)
+    {
+        var timer = new System.Windows.Forms.Timer { Interval = 1500 };
+        timer.Tick += (s, e) =>
+        {
+            timer.Stop();
+            UnregisterDpiCorrectionTimer(hwnd, timer);
+            timer.Dispose();
+
+            string process = DescribeWindowProcess(hwnd);
+            if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone"); return; }
+
+            // Check against the CORRECT target (fallbackBounds), not against what this method
+            // originally set - checking whether the window actually reached the right answer,
+            // rather than whether it merely changed at all, isn't fooled by an app doing some
+            // small unrelated adjustment of its own (confirmed: Steam drifting 63px on its own,
+            // nowhere near the real target, which used to pass a "did anything change" check).
+            Rectangle actual = ToRectangle(r);
+            if (RoughlyEqual(actual, fallbackBounds))
+            {
+                DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={fallbackBounds}, attempt {MaxDpiCorrectionAttempts - attemptsLeft + 1}");
+                return;
+            }
+
+            bool applied = SetWindowPos(hwnd, IntPtr.Zero,
+                fallbackBounds.X, fallbackBounds.Y, fallbackBounds.Width, fallbackBounds.Height,
+                SWP_NOZORDER | SWP_NOACTIVATE);
+            DebugLog.Write($"DPI correction [{process}]: actual={actual} -> fallback={fallbackBounds}, applied={applied}, attemptsLeft={attemptsLeft}");
+
+            if (attemptsLeft > 1)
+                ScheduleDpiCorrectionRetries(hwnd, fallbackBounds, attemptsLeft - 1);
+        };
+        pendingDpiCorrections[hwnd] = (timer, fallbackBounds);
+        timer.Start();
+    }
+
+    // Windows' own invisible resize-border margins are DPI-dependent and can shift by a few
+    // pixels across a DPI-crossing move independent of the app - not the hundreds-of-pixels
+    // scale of a real DPI self-correction. 8px comfortably clears that OS-level noise while
+    // staying far below any genuine app resize.
+    private const int DpiCorrectionToleranceInPixels = 8;
+
+    private static bool RoughlyEqual(Rectangle a, Rectangle b) =>
+        Math.Abs(a.X - b.X) <= DpiCorrectionToleranceInPixels &&
+        Math.Abs(a.Y - b.Y) <= DpiCorrectionToleranceInPixels &&
+        Math.Abs(a.Width - b.Width) <= DpiCorrectionToleranceInPixels &&
+        Math.Abs(a.Height - b.Height) <= DpiCorrectionToleranceInPixels;
 
     // Moves a maximized window directly onto the target monitor in one Win32 call, instead
     // of restore -> move -> maximize as three separate calls (see ISSUES.md history: that
@@ -342,46 +528,44 @@ class Program
     // and ProportionalSize. Falls back to a fixed size centered on the target monitor when
     // the window's current bounds or monitor can't be determined, same as the app has
     // always done.
-    private static Rectangle DetermineWindowBounds(IntPtr hwnd, Screen target)
+    //
+    // Also returns WatchForSelfResize: true only when this move crosses a real DPI boundary on
+    // a per-monitor-DPI-aware window - the only case where the target app might change this
+    // size on its own afterward (Chrome/Explorer auto-resize themselves the moment they detect
+    // a DPI change; VLC/Steam don't). When true, MoveWindowToScreen schedules a reactive check
+    // that corrects the window back to Bounds if anything changes it away - see
+    // ScheduleDpiCompensationCheck and ISSUES.md's resolved DPI-sizing history for why this
+    // replaced an earlier approach that tried to pre-guess a DPI-compensated size instead.
+    private static (Rectangle Bounds, bool WatchForSelfResize) DetermineWindowBounds(IntPtr hwnd, Screen target)
     {
         var fallbackSize = new Size(WindowWidth, WindowHeight);
 
-        if (!GetWindowRect(hwnd, out RECT r)) return WindowPlacement.Centered(target.WorkingArea, fallbackSize);
+        if (!GetWindowRect(hwnd, out RECT r)) return (WindowPlacement.Centered(target.WorkingArea, fallbackSize), false);
 
         Rectangle currentBounds = ToRectangle(r);
         Screen[] screens = Screen.AllScreens;
         var layout = new MonitorLayout(Array.ConvertAll(screens, s => s.WorkingArea));
         int sourceIndex = layout.IndexOfMonitorShowing(currentBounds);
-        if (sourceIndex < 0) return WindowPlacement.Centered(target.WorkingArea, fallbackSize); // no monitors at all
+        if (sourceIndex < 0) return (WindowPlacement.Centered(target.WorkingArea, fallbackSize), false); // no monitors at all
 
         Rectangle sourceWorkingArea = layout[sourceIndex];
 
-        // Clamp the plain proportional size to the monitor FIRST, then compensate - not the
-        // other way round. Compensating first and clamping the (inflated) result afterward
-        // means a target app that really does auto-correct on WM_DPICHANGED ends up shrinking
-        // the already-clamped value a second time, undershooting badly. Clamping the intended
-        // size first and compensating that gives the right settled size either way: correct
-        // after the app's own correction if it auto-corrects, and still monitor-safe if it
-        // doesn't (bounded overshoot from the compensation itself, not unbounded).
-        Size intendedSize = WindowPlacement.ProportionalSize(sourceWorkingArea, currentBounds.Size, target.WorkingArea);
-        intendedSize = WindowPlacement.ClampToMonitor(intendedSize, target.WorkingArea);
-        Size size = CompensateForTargetDpiResponse(hwnd, intendedSize, target.WorkingArea);
+        // The actual sizing decision (proportional size, clamped to the target monitor) is
+        // WindowPlacement.DetermineTargetSize, in WindowMover.Core where it can be unit tested.
+        Size size = WindowPlacement.DetermineTargetSize(sourceWorkingArea, currentBounds.Size, target.WorkingArea);
+        Rectangle bounds = WindowPlacement.ProportionalPosition(sourceWorkingArea, currentBounds, target.WorkingArea, size);
 
-        return WindowPlacement.ProportionalPosition(sourceWorkingArea, currentBounds, target.WorkingArea, size);
+        bool watchForSelfResize = CrossesRealDpiBoundary(hwnd, target.WorkingArea);
+        return (bounds, watchForSelfResize);
     }
 
-    // Crossing onto a monitor with a different DPI scale, a per-monitor-DPI-aware target
-    // window (most modern apps) gets WM_DPICHANGED and, by default, resizes itself by
-    // (targetDpi / sourceDpi) - asynchronously, after this app's own SetWindowPos already
-    // returned, silently overriding whatever size was just set. Pre-dividing by that same
-    // ratio here cancels it out, landing back at intendedSize once the target app's own
-    // correction has happened.
-    private static Size CompensateForTargetDpiResponse(IntPtr hwnd, Size intendedSize, Rectangle targetMonitorBounds)
+    // Is the target window per-monitor-DPI-aware (only those get WM_DPICHANGED and might
+    // resize themselves in response), and does this move actually cross a DPI boundary?
+    // Returns false - don't bother watching - if either can't be determined.
+    private static bool CrossesRealDpiBoundary(IntPtr hwnd, Rectangle targetMonitorBounds)
     {
-        // Only per-monitor-DPI-aware windows receive WM_DPICHANGED at all - compensating
-        // for a window that never reacts to it would introduce an error where none exists.
         int awareness = GetAwarenessFromDpiAwarenessContext(GetWindowDpiAwarenessContext(hwnd));
-        if (awareness != DPI_AWARENESS_PER_MONITOR_AWARE) return intendedSize;
+        if (awareness != DPI_AWARENESS_PER_MONITOR_AWARE) return false;
 
         // Read the source monitor before the window moves - MonitorFromWindow still
         // reflects where it currently is at this point in the call chain.
@@ -389,14 +573,10 @@ class Program
         RECT targetRect = ToRect(targetMonitorBounds);
         IntPtr targetMonitor = MonitorFromRect(ref targetRect, MONITOR_DEFAULTTONEAREST);
 
-        if (GetDpiForMonitor(sourceMonitor, MDT_EFFECTIVE_DPI, out uint sourceDpiX, out uint sourceDpiY) != 0) return intendedSize;
-        if (GetDpiForMonitor(targetMonitor, MDT_EFFECTIVE_DPI, out uint targetDpiX, out uint targetDpiY) != 0) return intendedSize;
+        if (GetDpiForMonitor(sourceMonitor, MDT_EFFECTIVE_DPI, out uint sX, out uint sY) != 0) return false;
+        if (GetDpiForMonitor(targetMonitor, MDT_EFFECTIVE_DPI, out uint tX, out uint tY) != 0) return false;
 
-        if (sourceDpiX == targetDpiX && sourceDpiY == targetDpiY) return intendedSize; // no DPI boundary crossed
-
-        return new Size(
-            (int)Math.Round(intendedSize.Width * (double)sourceDpiX / targetDpiX),
-            (int)Math.Round(intendedSize.Height * (double)sourceDpiY / targetDpiY));
+        return sX != tX || sY != tY;
     }
 
     // Converts a Rectangle (position + size) back into a Win32 RECT (edges)

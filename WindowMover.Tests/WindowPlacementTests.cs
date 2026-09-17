@@ -256,4 +256,34 @@ public class WindowPlacementTests
 
         Assert.Equal(new Size(1920, 1080), size);
     }
+
+    [Fact]
+    public void Target_size_is_the_clamped_proportional_size_with_no_dpi_math_involved()
+    {
+        // See ISSUES.md's resolved DPI-sizing history: DetermineTargetSize used to also bet-
+        // inflate by a DPI ratio, betting a per-monitor-DPI-aware app would shrink it back on
+        // its own. That's retired - self-resizing apps are now handled by reactively
+        // correcting whatever they change it to (Program.cs), not by pre-guessing a value for
+        // them, so this is just ProportionalSize clamped to the target monitor.
+        var source = new Rectangle(0, 0, 2560, 1440); // 1440p working area
+        var target = new Rectangle(0, 0, 1920, 1080); // 1080p working area
+
+        var size = WindowPlacement.DetermineTargetSize(source, new Size(1280, 1440), target);
+
+        Assert.Equal(new Size(960, 1080), size);
+    }
+
+    [Fact]
+    public void Target_size_never_exceeds_the_target_monitor_even_with_no_headroom()
+    {
+        // A window already filling its source monitor's full height, moved onto a shorter
+        // target monitor, must still be clamped - ClampToMonitor's own job, exercised through
+        // the composed function.
+        var source = new Rectangle(0, 0, 2560, 1440); // 1440p working area
+        var target = new Rectangle(0, 0, 1920, 1080); // 1080p working area
+
+        var size = WindowPlacement.DetermineTargetSize(source, new Size(1440, 1440), target);
+
+        Assert.Equal(1080, size.Height);
+    }
 }

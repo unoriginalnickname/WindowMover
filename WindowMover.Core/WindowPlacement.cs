@@ -84,4 +84,18 @@ public static class WindowPlacement
         new Size(
             Math.Min(size.Width, monitorBounds.Width),
             Math.Min(size.Height, monitorBounds.Height));
+
+    // The full non-maximized-move sizing decision in one testable place: proportional size,
+    // clamped to the target monitor. See ISSUES.md's resolved DPI-sizing history for why this
+    // used to also include a DPI-ratio "bet" (deliberately inflating the size, betting a
+    // per-monitor-DPI-aware app would shrink it back on its own) - that approach is retired.
+    // A per-monitor-DPI-aware app (Chrome, Explorer) auto-resizes itself the moment it detects
+    // a DPI change regardless of what size it's handed, so betting on a guessed value never
+    // avoided needing a reactive correction step anyway; setting the plain correct size
+    // directly and reactively correcting *any* app that changes it away from that (Program.cs's
+    // DPI-correction fallback) is simpler, needs no DPI-ratio math at all, and additionally
+    // means an app that never touches its size (VLC, Steam) lands correct immediately with no
+    // correction step, instead of always paying for one.
+    public static Size DetermineTargetSize(Rectangle sourceWorkingArea, Size currentSize, Rectangle targetWorkingArea) =>
+        ClampToMonitor(ProportionalSize(sourceWorkingArea, currentSize, targetWorkingArea), targetWorkingArea);
 }
