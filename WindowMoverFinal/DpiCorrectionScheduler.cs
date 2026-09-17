@@ -43,10 +43,15 @@ internal static class DpiCorrectionScheduler
         if (idObject != OBJID_WINDOW) return;
         if (!pendingDpiCorrections.TryGetValue(hwnd, out var pending)) return;
 
-        pending.Timer.Stop();
-        pending.Timer.Dispose();
-        pendingDpiCorrections.Remove(hwnd);
+        RemovePending(hwnd, pending);
         DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: abandoned - user began an interactive move/resize");
+    }
+
+    private sealed class PendingCorrection
+    {
+        public required System.Windows.Forms.Timer DebounceTimer;
+        public required Rectangle FallbackBounds;
+        public required DateTime Deadline;
     }
 
     // Keyed by hwnd, not a flat list: confirmed bug (ISSUES.md #3) - moving the same window
@@ -55,30 +60,33 @@ internal static class DpiCorrectionScheduler
     // to the earlier move's stale target, visibly "queuing up" jumps between screens. Starting
     // a new chain for a window now always resolves whatever chain is already running for it
     // first (see ResolvePendingDpiCorrection) rather than just cancelling it silently.
-    private static readonly Dictionary<IntPtr, (System.Windows.Forms.Timer Timer, Rectangle FallbackBounds)> pendingDpiCorrections = new();
+    private static readonly Dictionary<IntPtr, PendingCorrection> pendingDpiCorrections = new();
 
-    // Interval between the read-only checks in ScheduleCheck, below.
-    private const int FastCheckDelayMs = 150;
+    // How long a window's bounds must sit unchanged (no EVENT_OBJECT_LOCATIONCHANGE for it)
+    // before a wrong size is treated as final rather than still in motion. This only needs to
+    // debounce a single resize's own internal churn, not outlast an app's entire correction
+    // the way the old fixed-poll design had to guess at - the event tells us the instant
+    // something actually happens, so we only ever wait as long as real activity demands.
+    private const int DebounceMs = 100;
 
-    // The delay can't be "correct" - there's no way to know a given app's own correction time
-    // in advance, so this is a race no fixed delay fully eliminates, only makes unlikely. It's
-    // a deliberately one-sided bet: a genuinely non-cooperating app (VLC/Steam) was already
-    // stuck wrong indefinitely before this existed, so waiting longer before fixing it costs
-    // nothing; a cooperating app (Chrome/Explorer) just needs the delay to reliably outlast its
-    // own correction. 400ms was confirmed too short - it raced ahead of Chrome's own correction
-    // and compounded into a wrong result (this method's fallback landing, then Chrome's own
-    // shrink applying again on top of it). 1500ms leaves much more margin, confirmed safe.
-    //
-    // Bounded retry count - see ISSUES.md #3 (Steam). A few retries gives real margin against
-    // timing variance without retrying forever against a window that's genuinely never going
-    // to reach the target (e.g. Steam's own enforced minimum size).
-    private const int MaxDpiCorrectionAttempts = 3;
+    // Hard cap on total time spent watching a window, regardless of how many times the
+    // debounce has been restarted by fresh events or re-armed after a forced correction -
+    // guards the same case the old bounded-retry-count guarded (ISSUES.md #3, Steam): a
+    // window that keeps drifting and never truly settles on the right answer.
+    private const int MaxTotalCorrectionWindowMs = 5000;
 
     // Windows' own invisible resize-border margins are DPI-dependent and can shift by a few
     // pixels across a DPI-crossing move independent of the app - not the hundreds-of-pixels
     // scale of a real DPI self-correction. 8px comfortably clears that OS-level noise while
     // staying far below any genuine app resize.
     private const int DpiCorrectionToleranceInPixels = 8;
+
+    // Fires on any window's bounds actually changing, system-wide - installed only while at
+    // least one correction is pending (see EnsureLocationChangeWatcherInstalled/RemovePending)
+    // rather than for the app's whole lifetime, since this event is far chattier than
+    // EVENT_SYSTEM_MOVESIZESTART and would otherwise run against the "lightweight" goal.
+    private static IntPtr locationChangeHookId;
+    private static WinEventDelegate? locationChangeHookProc;
 
     // Also confirmed via ISSUES.md #3 (VLC): a second, subtler bug from the same root cause -
     // a brand new move reads the window's *current* size as its proportional baseline, and if
@@ -91,10 +99,7 @@ internal static class DpiCorrectionScheduler
     public static void ResolvePendingDpiCorrection(IntPtr hwnd)
     {
         if (!pendingDpiCorrections.TryGetValue(hwnd, out var pending)) return;
-
-        pending.Timer.Stop();
-        pending.Timer.Dispose();
-        pendingDpiCorrections.Remove(hwnd);
+        RemovePending(hwnd, pending);
 
         if (!GetWindowRect(hwnd, out RECT r)) return; // window gone
         if (IsZoomed(hwnd)) return; // maximized since the correction was scheduled - not ours to touch
@@ -107,111 +112,130 @@ internal static class DpiCorrectionScheduler
         DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: resolved pending correction early to fallback={pending.FallbackBounds} before a new move");
     }
 
-    // Only removes the dictionary entry if it still points at this exact timer - a timer that
-    // was already superseded (and resolved) by ResolvePendingDpiCorrection must not remove a
-    // newer chain's entry when its own (already-cancelled) Tick still fires.
-    private static void UnregisterDpiCorrectionTimer(IntPtr hwnd, System.Windows.Forms.Timer timer)
-    {
-        if (pendingDpiCorrections.TryGetValue(hwnd, out var current) && current.Timer == timer)
-            pendingDpiCorrections.Remove(hwnd);
-    }
-
     public static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds)
     {
         // Any prior pending correction for this window was already resolved at the top of
         // MoveWindowToScreen, before this move's own bounds were even calculated.
-        ScheduleCheck(hwnd, fallbackBounds, previousActual: null);
-    }
+        EnsureLocationChangeWatcherInstalled();
 
-    // Confirmed via windowmover-debug.log on a real DPI-crossing move: a self-resizing app's
-    // mistake is often already final by the very first check and then just sits there -
-    // Explorer landed on exactly its old size times the monitor's DPI ratio, immediately, and
-    // never moved again across five checks spanning 750ms. Waiting out the full 1500ms retry
-    // cadence to fix a value that's already stable adds visible delay for nothing - that
-    // cadence exists to avoid racing an app that's still actively correcting itself, not one
-    // that's already finished (however wrongly). So: check twice, a beat apart. If the wrong
-    // size is identical both times, nothing is left to race - force it immediately. Only when
-    // it's still visibly changing between checks (genuine risk of racing an in-progress
-    // correction) does control pass to the slower, proven-safe retry chain.
-    private static void ScheduleCheck(IntPtr hwnd, Rectangle fallbackBounds, Rectangle? previousActual)
-    {
-        var timer = new System.Windows.Forms.Timer { Interval = FastCheckDelayMs };
-        timer.Tick += (s, e) =>
+        var pending = new PendingCorrection
         {
-            timer.Stop();
-            UnregisterDpiCorrectionTimer(hwnd, timer);
-            timer.Dispose();
-
-            string process = DebugLog.DescribeWindowProcess(hwnd);
-            if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone (fast check)"); return; }
-            if (IsZoomed(hwnd)) { DebugLog.Write($"DPI correction [{process}]: now maximized, abandoning correction (fast check)"); return; }
-
-            Rectangle actual = ToRectangle(r);
-            if (RoughlyEqual(actual, fallbackBounds))
-            {
-                DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={fallbackBounds} (fast check)");
-                return;
-            }
-
-            if (previousActual is Rectangle prev && RoughlyEqual(actual, prev))
-            {
-                bool applied = SetWindowPos(hwnd, IntPtr.Zero,
-                    fallbackBounds.X, fallbackBounds.Y, fallbackBounds.Width, fallbackBounds.Height,
-                    SWP_NOZORDER | SWP_NOACTIVATE);
-                DebugLog.Write($"DPI correction [{process}]: actual={actual} stable across two checks -> fallback={fallbackBounds}, applied={applied} (fast path)");
-                return;
-            }
-
-            if (previousActual is null)
-            {
-                DebugLog.Write($"DPI correction [{process}]: actual={actual} off fallback={fallbackBounds} (first check) - checking again to see if it's still moving");
-                ScheduleCheck(hwnd, fallbackBounds, actual);
-            }
-            else
-            {
-                DebugLog.Write($"DPI correction [{process}]: actual={actual} still changing (was {previousActual}) - falling to slow retry cadence");
-                ScheduleDpiCorrectionRetries(hwnd, fallbackBounds);
-            }
+            DebounceTimer = null!,
+            FallbackBounds = fallbackBounds,
+            Deadline = DateTime.UtcNow.AddMilliseconds(MaxTotalCorrectionWindowMs)
         };
-        pendingDpiCorrections[hwnd] = (timer, fallbackBounds);
-        timer.Start();
+        pending.DebounceTimer = StartDebounceTimer(hwnd);
+        pendingDpiCorrections[hwnd] = pending;
     }
 
-    private static void ScheduleDpiCorrectionRetries(IntPtr hwnd, Rectangle fallbackBounds, int attemptsLeft = MaxDpiCorrectionAttempts)
+    // A location-change event means this window's bounds just changed, for any reason - reset
+    // the debounce so OnSettled only fires once things have actually gone quiet, instead of
+    // judging a still-moving window "final" mid-motion.
+    private static void OnLocationChanged(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
     {
-        var timer = new System.Windows.Forms.Timer { Interval = 1500 };
+        if (idObject != OBJID_WINDOW) return;
+        if (!pendingDpiCorrections.TryGetValue(hwnd, out var pending)) return;
+
+        pending.DebounceTimer.Stop();
+        pending.DebounceTimer.Dispose();
+        pending.DebounceTimer = StartDebounceTimer(hwnd);
+    }
+
+    private static System.Windows.Forms.Timer StartDebounceTimer(IntPtr hwnd)
+    {
+        var timer = new System.Windows.Forms.Timer { Interval = DebounceMs };
         timer.Tick += (s, e) =>
         {
+            // A WinForms Timer keeps ticking on its own interval forever once started,
+            // whether or not anything still references it - must stop and dispose THIS
+            // instance here, before OnSettled replaces pending.DebounceTimer with a new one,
+            // or the old one leaks and keeps firing OnSettled indefinitely in the background.
             timer.Stop();
-            UnregisterDpiCorrectionTimer(hwnd, timer);
             timer.Dispose();
+            OnSettled(hwnd);
+        };
+        timer.Start();
+        return timer;
+    }
 
-            string process = DebugLog.DescribeWindowProcess(hwnd);
-            if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone"); return; }
-            if (IsZoomed(hwnd)) { DebugLog.Write($"DPI correction [{process}]: now maximized, abandoning correction"); return; }
+    // Fires once a window's bounds have sat unchanged for DebounceMs - whether that's because
+    // nothing ever needed fixing, an app finished self-correcting, or a self-resize landed
+    // wrong and then just stopped there (the common case observed live: Explorer scaling to
+    // its old size times the DPI ratio, immediately, then never touching it again).
+    private static void OnSettled(IntPtr hwnd)
+    {
+        if (!pendingDpiCorrections.TryGetValue(hwnd, out var pending)) return;
 
-            // Check against the CORRECT target (fallbackBounds), not against what this method
-            // originally set - checking whether the window actually reached the right answer,
-            // rather than whether it merely changed at all, isn't fooled by an app doing some
-            // small unrelated adjustment of its own (confirmed: Steam drifting 63px on its own,
-            // nowhere near the real target, which used to pass a "did anything change" check).
-            Rectangle actual = ToRectangle(r);
-            if (RoughlyEqual(actual, fallbackBounds))
-            {
-                DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={fallbackBounds}, attempt {MaxDpiCorrectionAttempts - attemptsLeft + 1}");
-                return;
-            }
+        string process = DebugLog.DescribeWindowProcess(hwnd);
+        if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone"); RemovePending(hwnd, pending); return; }
+        if (IsZoomed(hwnd)) { DebugLog.Write($"DPI correction [{process}]: now maximized, abandoning correction"); RemovePending(hwnd, pending); return; }
 
-            bool applied = SetWindowPos(hwnd, IntPtr.Zero,
-                fallbackBounds.X, fallbackBounds.Y, fallbackBounds.Width, fallbackBounds.Height,
+        Rectangle actual = ToRectangle(r);
+        if (RoughlyEqual(actual, pending.FallbackBounds))
+        {
+            DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={pending.FallbackBounds} (settled)");
+            RemovePending(hwnd, pending);
+            return;
+        }
+
+        if (DateTime.UtcNow >= pending.Deadline)
+        {
+            bool giveUpApplied = SetWindowPos(hwnd, IntPtr.Zero,
+                pending.FallbackBounds.X, pending.FallbackBounds.Y, pending.FallbackBounds.Width, pending.FallbackBounds.Height,
                 SWP_NOZORDER | SWP_NOACTIVATE);
-            DebugLog.Write($"DPI correction [{process}]: actual={actual} -> fallback={fallbackBounds}, applied={applied}, attemptsLeft={attemptsLeft}");
+            DebugLog.Write($"DPI correction [{process}]: actual={actual} hit max correction window -> fallback={pending.FallbackBounds}, applied={giveUpApplied}, giving up");
+            RemovePending(hwnd, pending);
+            return;
+        }
 
-            if (attemptsLeft > 1)
-                ScheduleDpiCorrectionRetries(hwnd, fallbackBounds, attemptsLeft - 1);
-        };
-        pendingDpiCorrections[hwnd] = (timer, fallbackBounds);
-        timer.Start();
+        bool applied = SetWindowPos(hwnd, IntPtr.Zero,
+            pending.FallbackBounds.X, pending.FallbackBounds.Y, pending.FallbackBounds.Width, pending.FallbackBounds.Height,
+            SWP_NOZORDER | SWP_NOACTIVATE);
+        DebugLog.Write($"DPI correction [{process}]: actual={actual} settled wrong -> fallback={pending.FallbackBounds}, applied={applied}");
+
+        // Re-arm rather than remove: the correction just applied might get fought again (or
+        // might not stick for some other reason), and the deadline above bounds how long this
+        // can keep happening.
+        pending.DebounceTimer = StartDebounceTimer(hwnd);
+    }
+
+    // The single choke point every correction lifecycle ends through - settled correctly, hit
+    // the deadline, abandoned for a manual resize, or superseded by a new move - so it's also
+    // the one safe place to un-hide the window WindowMoveActions hid before starting: whatever
+    // ended the correction, the window is guaranteed to come back. SW_SHOWNA on an
+    // already-visible window (the common case that was never hidden) is a harmless no-op.
+    private static void RemovePending(IntPtr hwnd, PendingCorrection pending)
+    {
+        pending.DebounceTimer.Stop();
+        pending.DebounceTimer.Dispose();
+        pendingDpiCorrections.Remove(hwnd);
+        if (pendingDpiCorrections.Count == 0) UninstallLocationChangeWatcher();
+        ShowWindow(hwnd, SW_SHOWNA);
+    }
+
+    private static void EnsureLocationChangeWatcherInstalled()
+    {
+        if (locationChangeHookId != IntPtr.Zero) return;
+        locationChangeHookProc = OnLocationChanged;
+        locationChangeHookId = SetWinEventHook(
+            EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
+            IntPtr.Zero, locationChangeHookProc, 0, 0, WINEVENT_OUTOFCONTEXT);
+    }
+
+    private static void UninstallLocationChangeWatcher()
+    {
+        if (locationChangeHookId == IntPtr.Zero) return;
+        UnhookWinEvent(locationChangeHookId);
+        locationChangeHookId = IntPtr.Zero;
+        locationChangeHookProc = null;
+    }
+
+    // Called on app shutdown so no timer callback or hook can fire after Application.Run()
+    // has returned.
+    public static void Shutdown()
+    {
+        foreach (var hwnd in new List<IntPtr>(pendingDpiCorrections.Keys))
+            RemovePending(hwnd, pendingDpiCorrections[hwnd]);
     }
 
     private static bool RoughlyEqual(Rectangle a, Rectangle b) =>

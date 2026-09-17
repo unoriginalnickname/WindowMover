@@ -8,6 +8,12 @@ using static NativeMethods;
 // WindowMover.Core, which knows nothing about Win32 and can therefore be tested.
 internal static class WindowMoveActions
 {
+    // User-facing toggle (tray menu) for the hide-during-correction behavior below. On by
+    // default for the cleaner visual result; off trades that back for a visible flash in
+    // exchange for never touching the window's visibility state, which some apps (confirmed:
+    // Chrome/YouTube's spacebar-to-pause) treat as a real backgrounding signal.
+    public static bool HideDuringDpiCorrection { get; set; } = true;
+
     // Fallback size for a maximized window's remembered restored size, and for the rare
     // case a window's current bounds or monitor can't be read - see DetermineWindowBounds.
     private const int WindowWidth = 800;
@@ -83,12 +89,38 @@ internal static class WindowMoveActions
 
         var (bounds, watchForSelfResize) = DetermineWindowBounds(hwnd, target);
 
-        SetWindowPos(hwnd, IntPtr.Zero,
-            bounds.X, bounds.Y, bounds.Width, bounds.Height,
-            SWP_NOZORDER | SWP_NOACTIVATE);
-
         if (watchForSelfResize)
+        {
+            // Setting the correct size and then having a self-resizing app fight it a moment
+            // later reads as the window visibly getting it right, then wrong, then right again -
+            // jarring even though the total time is similar. Instead: hide the window for the
+            // brief window where that fight could happen, and only reveal it once
+            // DpiCorrectionScheduler decides the correction is actually done (however many
+            // rounds that takes - see RemovePending, the single place that un-hides it, so it
+            // can't stay hidden past whatever ends the correction, including the hard deadline).
+            //
+            // Known tradeoff: hiding is a real visibility-state change, and Chrome fires
+            // visibilitychange to the page when its window is hidden - confirmed live to
+            // interrupt YouTube's spacebar-to-pause on the video player immediately after a
+            // move (general keyboard/typing focus is unaffected; it's specifically the
+            // player's own key-listener state). HideDuringDpiCorrection is the tray-menu
+            // escape hatch for that - default on for the cleaner visual result, off to keep
+            // the window visible (and accept the flash) instead.
+            // Still set the correct size immediately rather than waiting to see if it gets
+            // overridden: most apps here never get overridden at all (VLC, snapped windows,
+            // anything not per-monitor-DPI-aware) - waiting would leave those stuck wrong
+            // forever. The few that do get overridden are caught and corrected reactively
+            // by DpiCorrectionScheduler below instead.
+            if (HideDuringDpiCorrection) ShowWindow(hwnd, SW_HIDE);
+            SetWindowPos(hwnd, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, SWP_NOZORDER | SWP_NOACTIVATE);
             DpiCorrectionScheduler.ScheduleDpiCompensationCheck(hwnd, bounds);
+        }
+        else
+        {
+            SetWindowPos(hwnd, IntPtr.Zero,
+                bounds.X, bounds.Y, bounds.Width, bounds.Height,
+                SWP_NOZORDER | SWP_NOACTIVATE);
+        }
     }
 
     // Moves a maximized window directly onto the target monitor in one Win32 call, instead

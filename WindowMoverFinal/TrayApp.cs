@@ -12,6 +12,24 @@ internal static class TrayApp
         { Checked = StartupRegistry.IsStartupEnabled() };
 
         trayMenu.Items.Add(startupItem);
+
+        // Hides a window during the brief window where a self-resizing app might fight the
+        // size WindowMover just set, instead of showing that fight - see WindowMoveActions.
+        // HideDuringDpiCorrection. Label states the tradeoff directly since it's not obvious:
+        // confirmed to interrupt YouTube's spacebar-to-pause (Chrome treats hiding as
+        // backgrounding the page), even though general keyboard focus is unaffected.
+        var hideDuringResizeItem = new ToolStripMenuItem(
+            "Hide window during monitor-crossing resize (can affect page focus, e.g. YouTube spacebar)",
+            null, (s, e) =>
+            {
+                var item = (ToolStripMenuItem)s!;
+                WindowMoveActions.HideDuringDpiCorrection = !WindowMoveActions.HideDuringDpiCorrection;
+                item.Checked = WindowMoveActions.HideDuringDpiCorrection;
+                Settings.SaveHideDuringDpiCorrection(WindowMoveActions.HideDuringDpiCorrection);
+            })
+        { Checked = WindowMoveActions.HideDuringDpiCorrection };
+        trayMenu.Items.Add(hideDuringResizeItem);
+
         trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("About", null, (s, e) => MessageBox.Show(
             "Window Mover\n\n" +
