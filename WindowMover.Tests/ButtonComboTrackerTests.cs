@@ -14,19 +14,19 @@ public class ButtonComboTrackerTests
     private static readonly nint NoWindow = 0;
 
     [Fact]
-    public void Mouse4_then_middle_click_cycles_to_the_next_monitor()
+    public void Mouse4_then_middle_click_sends_the_window_to_the_cursors_monitor()
     {
         var tracker = new ButtonComboTracker();
 
         tracker.SideButtonDown(SideButton.Mouse4, SomeWindow);
         var request = tracker.MiddleButtonDown();
 
-        Assert.Equal(MoveCommand.NextMonitor, request.Command);
+        Assert.Equal(MoveCommand.CursorMonitor, request.Command);
         Assert.Equal(SomeWindow, request.Window);
     }
 
     [Fact]
-    public void Mouse5_behaves_the_same_as_Mouse4_on_its_own()
+    public void Mouse5_then_middle_click_cycles_to_the_next_monitor()
     {
         var tracker = new ButtonComboTracker();
 
@@ -38,7 +38,7 @@ public class ButtonComboTrackerTests
     [Theory]
     [InlineData(SideButton.Mouse4, SideButton.Mouse5)]
     [InlineData(SideButton.Mouse5, SideButton.Mouse4)]
-    public void Holding_both_side_buttons_beats_holding_either_one(SideButton first, SideButton second)
+    public void Holding_both_side_buttons_behaves_like_Mouse4_alone(SideButton first, SideButton second)
     {
         var tracker = new ButtonComboTracker();
 
@@ -49,7 +49,19 @@ public class ButtonComboTrackerTests
     }
 
     [Fact]
-    public void Releasing_one_of_two_side_buttons_falls_back_to_the_single_button_action()
+    public void Releasing_Mouse4_out_of_a_two_button_hold_falls_back_to_Mouse5s_action()
+    {
+        var tracker = new ButtonComboTracker();
+
+        tracker.SideButtonDown(SideButton.Mouse4, SomeWindow);
+        tracker.SideButtonDown(SideButton.Mouse5, SomeWindow);
+        tracker.SideButtonUp(SideButton.Mouse4);
+
+        Assert.Equal(MoveCommand.NextMonitor, tracker.MiddleButtonDown().Command);
+    }
+
+    [Fact]
+    public void Releasing_Mouse5_out_of_a_two_button_hold_keeps_Mouse4s_action()
     {
         var tracker = new ButtonComboTracker();
 
@@ -57,7 +69,7 @@ public class ButtonComboTrackerTests
         tracker.SideButtonDown(SideButton.Mouse5, SomeWindow);
         tracker.SideButtonUp(SideButton.Mouse5);
 
-        Assert.Equal(MoveCommand.NextMonitor, tracker.MiddleButtonDown().Command);
+        Assert.Equal(MoveCommand.CursorMonitor, tracker.MiddleButtonDown().Command);
     }
 
     [Fact]
@@ -108,7 +120,7 @@ public class ButtonComboTrackerTests
     {
         var tracker = new ButtonComboTracker();
 
-        tracker.SideButtonDown(SideButton.Mouse4, SomeWindow);
+        tracker.SideButtonDown(SideButton.Mouse5, SomeWindow);
         tracker.MiddleButtonDown();
 
         // Moving a window twice in a row should walk it across two monitors, not stall.

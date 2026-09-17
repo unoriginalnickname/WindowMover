@@ -1,0 +1,70 @@
+using System.Runtime.InteropServices;
+using WindowMover.Core;
+using static NativeMethods;
+
+// Installs the low-level mouse hook and turns raw button events into move commands via
+// ButtonComboTracker. This function is called for every mouse event system-wide.
+internal static class MouseHook
+{
+    private static IntPtr hookId;
+
+    // SetWindowsHookEx only takes a raw function pointer; nothing else in the app was
+    // holding a managed reference to the delegate, so the GC was free to collect it while
+    // Windows was still calling through it - an intermittent, hard-to-reproduce crash on a
+    // mouse event. Keeping it in this static field roots it for the process's lifetime.
+    private static LowLevelMouseProc? hookProc;
+
+    // Remembers which extra buttons are pressed and which window they grabbed
+    private static readonly ButtonComboTracker buttons = new();
+
+    public static void Install()
+    {
+        hookProc = HookCallback;
+        hookId = SetWindowsHookEx(WH_MOUSE_LL, hookProc, IntPtr.Zero, 0);
+    }
+
+    public static void Uninstall()
+    {
+        UnhookWindowsHookEx(hookId);
+    }
+
+    private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0)
+        {
+            // Parse the mouse event data
+            var hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+            int xButton = (int)(hookStruct.mouseData >> 16); // Extract which X button (4 or 5)
+
+            // Handle extra mouse button press (Mouse 4 or 5)
+            if (wParam == (IntPtr)WM_XBUTTONDOWN)
+            {
+                // Grab the focused window now - by the time the user middle-clicks,
+                // something else may have taken focus
+                IntPtr fg = GetForegroundWindow();
+                if (xButton == XBUTTON1) buttons.SideButtonDown(SideButton.Mouse4, WindowMoveActions.WindowToCapture(fg));
+                else if (xButton == XBUTTON2) buttons.SideButtonDown(SideButton.Mouse5, WindowMoveActions.WindowToCapture(fg));
+            }
+            // Handle extra mouse button release
+            else if (wParam == (IntPtr)WM_XBUTTONUP)
+            {
+                if (xButton == XBUTTON1) buttons.SideButtonUp(SideButton.Mouse4);
+                else if (xButton == XBUTTON2) buttons.SideButtonUp(SideButton.Mouse5);
+            }
+            // Handle middle mouse button click - the tracker decides what the held buttons mean
+            else if (wParam == (IntPtr)WM_MBUTTONDOWN)
+            {
+                var request = buttons.MiddleButtonDown();
+                if (request.Command == MoveCommand.CursorMonitor)
+                {
+                    if (GetCursorPos(out POINT p))
+                        WindowMoveActions.MoveWindowToScreen(request.Window, Screen.FromPoint(new Point(p.X, p.Y)));
+                }
+                else if (request.Command == MoveCommand.NextMonitor)
+                    WindowMoveActions.MoveWindowToNextScreen(request.Window);
+            }
+        }
+        // Pass the event to the next hook in the chain
+        return CallNextHookEx(hookId, nCode, wParam, lParam);
+    }
+}

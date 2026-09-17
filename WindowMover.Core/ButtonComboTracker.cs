@@ -12,8 +12,8 @@ public enum SideButton
 public enum MoveCommand
 {
     None,           // nothing to do (no window captured, or no side button held)
-    NextMonitor,    // one side button held: cycle the window to the next monitor
-    CursorMonitor   // both side buttons held: send the window to the monitor the cursor is on
+    NextMonitor,    // Mouse5 (and not Mouse4) held: cycle the window to the next monitor
+    CursorMonitor   // Mouse4 held (alone or with Mouse5): send the window to the monitor the cursor is on
 }
 
 // A command plus the window it applies to. The window is the raw Win32 handle,
@@ -60,14 +60,15 @@ public sealed class ButtonComboTracker
         if (!isMouse4Held && !isMouse5Held) CapturedWindow = 0;
     }
 
-    // Middle click: decide what the held buttons mean. Holding both beats holding either
-    // one, so the both-buttons check comes first.
+    // Middle click: decide what the held buttons mean. Mouse4 is the "pull it to where I
+    // am" button and wins whenever it's held, including together with Mouse5 - Mouse5 only
+    // gets its own meaning (cycle to next monitor) when held on its own.
     public MoveRequest MiddleButtonDown()
     {
         if (CapturedWindow == 0) return new MoveRequest(MoveCommand.None, 0);
 
-        if (isMouse4Held && isMouse5Held) return new MoveRequest(MoveCommand.CursorMonitor, CapturedWindow);
-        if (isMouse4Held || isMouse5Held) return new MoveRequest(MoveCommand.NextMonitor, CapturedWindow);
+        if (isMouse4Held) return new MoveRequest(MoveCommand.CursorMonitor, CapturedWindow);
+        if (isMouse5Held) return new MoveRequest(MoveCommand.NextMonitor, CapturedWindow);
 
         return new MoveRequest(MoveCommand.None, 0);
     }
