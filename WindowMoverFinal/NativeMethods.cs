@@ -14,9 +14,11 @@ internal static class NativeMethods
     public const int XBUTTON2 = 0x0002;              // Mouse button 5 identifier
 
     // Window Management Constants
+    public const int SW_HIDE = 0;                    // Hide window (no taskbar flash, no destroy)
     public const int SW_RESTORE = 9;                 // Restore window from maximized/minimized
     public const int SW_MINIMIZE = 6;                // Minimize window
     public const int SW_MAXIMIZE = 3;                // Maximize window
+    public const int SW_SHOWNA = 8;                  // Show window in its current state, without activating it
     public const uint SWP_NOZORDER = 0x0004;         // Don't change Z-order when repositioning
     public const uint SWP_NOACTIVATE = 0x0010;       // Don't activate window when repositioning
 
@@ -32,6 +34,9 @@ internal static class NativeMethods
     // WinEvent constants - used to notice when a user starts dragging a window's own
     // move/resize border, as distinct from a program calling SetWindowPos on it.
     public const uint EVENT_SYSTEM_MOVESIZESTART = 0x000A;
+    // Fires the instant a window's bounds actually change, for any reason (ours or the
+    // app's own) - lets DpiCorrectionScheduler react immediately instead of polling on a guess.
+    public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
     public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
     public const int OBJID_WINDOW = 0;
 
