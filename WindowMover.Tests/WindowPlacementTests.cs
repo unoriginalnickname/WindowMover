@@ -276,13 +276,16 @@ public class WindowPlacementTests
     [Fact]
     public void Target_size_never_exceeds_the_target_monitor_even_with_no_headroom()
     {
-        // A window already filling its source monitor's full height, moved onto a shorter
-        // target monitor, must still be clamped - ClampToMonitor's own job, exercised through
-        // the composed function.
+        // A window already taller than its own source monitor's working area, moved onto a
+        // shorter target monitor, must still be clamped - ClampToMonitor's own job, exercised
+        // through the composed function. (A height of 1440 here would be a no-op regardless of
+        // whether clamping ran at all, since 1440/1440 scaled onto a 1080-tall target lands
+        // exactly on 1080 either way - 1600 makes the pre-clamp value actually overshoot to
+        // 1200, so this only passes if ClampToMonitor is really being applied.)
         var source = new Rectangle(0, 0, 2560, 1440); // 1440p working area
         var target = new Rectangle(0, 0, 1920, 1080); // 1080p working area
 
-        var size = WindowPlacement.DetermineTargetSize(source, new Size(1440, 1440), target);
+        var size = WindowPlacement.DetermineTargetSize(source, new Size(1440, 1600), target);
 
         Assert.Equal(1080, size.Height);
     }

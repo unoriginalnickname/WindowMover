@@ -65,7 +65,8 @@ class Program
         try
         {
             GetWindowThreadProcessId(hwnd, out uint pid);
-            return Process.GetProcessById((int)pid).ProcessName;
+            using var process = Process.GetProcessById((int)pid);
+            return process.ProcessName;
         }
         catch { return "unknown"; }
     }
@@ -290,17 +291,20 @@ class Program
     {
         if (!IsSafeMovableWindow(hwnd)) return;
 
+        // Must happen before the IsZoomed check below, not just before DetermineWindowBounds -
+        // see ISSUES.md #3. A window can become maximized (by the user, independent of this
+        // app, or via a previous WindowMover move) while a DPI correction from an earlier
+        // non-maximized move is still pending; resolving it here first - before deciding which
+        // move path to take - means ResolvePendingDpiCorrection's own maximized check (below)
+        // sees the window's *current* state and skips forcing stale, small bounds onto it,
+        // instead of a stale timer doing that later regardless of which path ran.
+        ResolvePendingDpiCorrection(hwnd);
+
         if (IsZoomed(hwnd))
         {
             MoveMaximizedWindowToScreen(hwnd, target);
             return;
         }
-
-        // Must happen before DetermineWindowBounds reads the window's current size below - see
-        // ISSUES.md #3. A rapid second move on a window that still has a DPI correction pending
-        // from the previous move would otherwise read a transient, not-yet-settled size as its
-        // proportional baseline, compounding an error into the new move.
-        ResolvePendingDpiCorrection(hwnd);
 
         var (bounds, watchForSelfResize) = DetermineWindowBounds(hwnd, target);
 
@@ -345,6 +349,7 @@ class Program
         pendingDpiCorrections.Remove(hwnd);
 
         if (!GetWindowRect(hwnd, out RECT r)) return; // window gone
+        if (IsZoomed(hwnd)) return; // maximized since the correction was scheduled - not ours to touch
         if (RoughlyEqual(ToRectangle(r), pending.FallbackBounds)) return; // already correct
 
         SetWindowPos(hwnd, IntPtr.Zero,
@@ -382,6 +387,7 @@ class Program
 
             string process = DescribeWindowProcess(hwnd);
             if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone (fast check)"); return; }
+            if (IsZoomed(hwnd)) { DebugLog.Write($"DPI correction [{process}]: now maximized, abandoning correction (fast check)"); return; }
 
             Rectangle actual = ToRectangle(r);
             if (RoughlyEqual(actual, fallbackBounds))
@@ -421,6 +427,7 @@ class Program
 
             string process = DescribeWindowProcess(hwnd);
             if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone"); return; }
+            if (IsZoomed(hwnd)) { DebugLog.Write($"DPI correction [{process}]: now maximized, abandoning correction"); return; }
 
             // Check against the CORRECT target (fallbackBounds), not against what this method
             // originally set - checking whether the window actually reached the right answer,
