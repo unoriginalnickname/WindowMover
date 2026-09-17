@@ -23,6 +23,7 @@ class Program
 
     // Window Management Constants
     private const int SW_RESTORE = 9;                // Restore window from maximized/minimized
+    private const int SW_MINIMIZE = 6;               // Minimize window
     private const int SW_MAXIMIZE = 3;               // Maximize window
     private const uint SWP_NOZORDER = 0x0004;        // Don't change Z-order when repositioning
     private const uint SWP_NOACTIVATE = 0x0010;      // Don't activate window when repositioning
@@ -46,6 +47,19 @@ class Program
     // Structure for window rectangle (bounds)
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT { public int Left, Top, Right, Bottom; }
+
+    // A window's placement state - used to move a maximized window directly onto another
+    // monitor in one call instead of restore -> move -> maximize as three separate calls.
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINDOWPLACEMENT
+    {
+        public int length;
+        public int flags;
+        public int showCmd;
+        public POINT ptMinPosition;
+        public POINT ptMaxPosition;
+        public RECT rcNormalPosition;
+    }
 
     // Structure for low-level mouse hook data
     [StructLayout(LayoutKind.Sequential)]
@@ -82,6 +96,8 @@ class Program
     [DllImport("Shcore.dll")] private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
     [DllImport("user32.dll")] private static extern IntPtr GetWindowDpiAwarenessContext(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern int GetAwarenessFromDpiAwarenessContext(IntPtr dpiContext);
+    [DllImport("user32.dll")] private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+    [DllImport("user32.dll")] private static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
 
     // Window style constants
     private const int GWL_EXSTYLE = -20;             // Extended window style index
@@ -267,34 +283,93 @@ class Program
     {
         if (!IsSafeMovableWindow(hwnd)) return;
 
-        bool maximized = IsZoomed(hwnd);
-        Size windowSize = DetermineWindowSize(hwnd, target, maximized);
+        if (IsZoomed(hwnd))
+        {
+            MoveMaximizedWindowToScreen(hwnd, target);
+            return;
+        }
 
-        var plan = WindowPlacement.PlanMove(target.Bounds, windowSize, maximized);
-
-        // Restore maximized windows before moving - Windows keeps a maximized window on
-        // the monitor it was maximized on
-        if (plan.RestoreBeforeMove) ShowWindow(hwnd, SW_RESTORE);
+        Size windowSize = DetermineWindowSize(hwnd, target);
+        var plan = WindowPlacement.PlanMove(target.Bounds, windowSize);
 
         SetWindowPos(hwnd, IntPtr.Zero,
             plan.TargetBounds.X, plan.TargetBounds.Y,
             plan.TargetBounds.Width, plan.TargetBounds.Height,
             SWP_NOZORDER | SWP_NOACTIVATE);
-
-        if (plan.MaximizeAfterMove) ShowWindow(hwnd, SW_MAXIMIZE);
     }
 
-    // The size to move a window to. A maximized window's size barely matters (it fills the
-    // monitor either way, and this just becomes its remembered restored size), so it keeps
-    // using the configured default. A normal window keeps the same percentage of screen it
-    // had before, so it does not look tiny dragged onto a much bigger monitor or hang off
-    // the edges of a much smaller one - see WindowPlacement.ProportionalSize. Falls back to
-    // the configured default when the window's current bounds or monitor cannot be
-    // determined, same as the app has always done.
-    private static Size DetermineWindowSize(IntPtr hwnd, Screen target, bool maximized)
+    // Moves a maximized window directly onto the target monitor in one Win32 call, instead
+    // of restore -> move -> maximize as three separate calls (see ISSUES.md history: that
+    // sequence visibly shrinks the window to its old restored size, jumps it, then grows it
+    // back to maximized). SetWindowPlacement lets us set the window's "restored" position
+    // to the target monitor's own working area and ask for it maximized in one shot, so
+    // Windows never has to show it at any other size in between.
+    private static void MoveMaximizedWindowToScreen(IntPtr hwnd, Screen target)
+    {
+        var primary = Screen.PrimaryScreen;
+        var placement = new WINDOWPLACEMENT { length = Marshal.SizeOf<WINDOWPLACEMENT>() };
+
+        if (primary is null || !GetWindowPlacement(hwnd, ref placement))
+        {
+            MoveMaximizedWindowTheSlowWay(hwnd, target);
+            return;
+        }
+
+        Rectangle workspaceRect = WindowPlacement.ToWorkspaceCoordinates(target.WorkingArea, primary.WorkingArea.Location);
+
+        placement.showCmd = SW_MAXIMIZE;
+        placement.rcNormalPosition = new RECT
+        {
+            Left = workspaceRect.Left,
+            Top = workspaceRect.Top,
+            Right = workspaceRect.Right,
+            Bottom = workspaceRect.Bottom
+        };
+        // ptMaxPosition is a real workspace-coordinate point (the window's maximized
+        // top-left corner), not a screen-space or "auto" value - MSDN documents it in the
+        // same coordinate space as rcNormalPosition. Left over from the OLD monitor, or set
+        // to a bogus sentinel, it disagrees with rcNormalPosition about which monitor the
+        // window belongs to, which is why the window wasn't showing up correctly.
+        placement.ptMaxPosition = new POINT { X = workspaceRect.Left, Y = workspaceRect.Top };
+
+        if (!SetWindowPlacement(hwnd, ref placement))
+        {
+            MoveMaximizedWindowTheSlowWay(hwnd, target);
+            return;
+        }
+
+        // SetWindowPlacement updates the window's placement bookkeeping, but since it
+        // already reports itself as maximized, a follow-up ShowWindow(SW_MAXIMIZE) alone is
+        // treated as "already there" and is a no-op - Windows never actually redraws it at
+        // the new placement. A real state transition is needed to force that: minimizing
+        // and then maximizing again is exactly the manual workaround that was confirmed to
+        // work, so the code does the same thing instead of leaving it to the user.
+        ShowWindow(hwnd, SW_MINIMIZE);
+        ShowWindow(hwnd, SW_MAXIMIZE);
+    }
+
+    // The original restore -> move -> maximize sequence, kept only as a fallback for the
+    // rare case GetWindowPlacement/SetWindowPlacement itself fails.
+    private static void MoveMaximizedWindowTheSlowWay(IntPtr hwnd, Screen target)
+    {
+        var plan = WindowPlacement.PlanMove(target.Bounds, new Size(WindowWidth, WindowHeight));
+
+        ShowWindow(hwnd, SW_RESTORE);
+        SetWindowPos(hwnd, IntPtr.Zero,
+            plan.TargetBounds.X, plan.TargetBounds.Y,
+            plan.TargetBounds.Width, plan.TargetBounds.Height,
+            SWP_NOZORDER | SWP_NOACTIVATE);
+        ShowWindow(hwnd, SW_MAXIMIZE);
+    }
+
+    // The size to move a non-maximized window to, keeping the same percentage of screen it
+    // had before so it does not look tiny dragged onto a much bigger monitor or hang off the
+    // edges of a much smaller one - see WindowPlacement.ProportionalSize. Falls back to the
+    // configured default when the window's current bounds or monitor cannot be determined,
+    // same as the app has always done.
+    private static Size DetermineWindowSize(IntPtr hwnd, Screen target)
     {
         var fallback = new Size(WindowWidth, WindowHeight);
-        if (maximized) return fallback;
 
         if (!GetWindowRect(hwnd, out RECT r)) return fallback;
 

@@ -13,7 +13,7 @@ public class WindowPlacementTests
     {
         var monitor = new Rectangle(0, 0, 1920, 1080);
 
-        var plan = WindowPlacement.PlanMove(monitor, DefaultWindowSize, isMaximized: false);
+        var plan = WindowPlacement.PlanMove(monitor, DefaultWindowSize);
 
         Assert.Equal(new Rectangle(560, 240, 800, 600), plan.TargetBounds);
     }
@@ -25,7 +25,7 @@ public class WindowPlacementTests
         // has to be offset by that much or it lands back on the first monitor.
         var monitor = new Rectangle(1920, 0, 1920, 1080);
 
-        var plan = WindowPlacement.PlanMove(monitor, DefaultWindowSize, isMaximized: false);
+        var plan = WindowPlacement.PlanMove(monitor, DefaultWindowSize);
 
         Assert.Equal(new Rectangle(2480, 240, 800, 600), plan.TargetBounds);
     }
@@ -35,33 +35,9 @@ public class WindowPlacementTests
     {
         var monitor = new Rectangle(-1280, -1024, 1280, 1024);
 
-        var plan = WindowPlacement.PlanMove(monitor, DefaultWindowSize, isMaximized: false);
+        var plan = WindowPlacement.PlanMove(monitor, DefaultWindowSize);
 
         Assert.Equal(new Rectangle(-1040, -812, 800, 600), plan.TargetBounds);
-    }
-
-    [Fact]
-    public void A_maximized_window_is_restored_first_and_maximized_again_afterwards()
-    {
-        var monitor = new Rectangle(1920, 0, 1920, 1080);
-
-        var plan = WindowPlacement.PlanMove(monitor, DefaultWindowSize, isMaximized: true);
-
-        Assert.True(plan.RestoreBeforeMove);
-        Assert.True(plan.MaximizeAfterMove);
-
-        // It is moved at its restored size, not at the size it had while maximized -
-        // otherwise Windows keeps it pinned to the monitor it was maximized on.
-        Assert.Equal(new Rectangle(2480, 240, 800, 600), plan.TargetBounds);
-    }
-
-    [Fact]
-    public void An_ordinary_window_is_neither_restored_nor_maximized()
-    {
-        var plan = WindowPlacement.PlanMove(new Rectangle(0, 0, 1920, 1080), DefaultWindowSize, isMaximized: false);
-
-        Assert.False(plan.RestoreBeforeMove);
-        Assert.False(plan.MaximizeAfterMove);
     }
 
     [Fact]
@@ -71,7 +47,7 @@ public class WindowPlacementTests
         // the monitor. Centring then means overhanging equally on both sides.
         var monitor = new Rectangle(0, 0, 1024, 768);
 
-        var plan = WindowPlacement.PlanMove(monitor, new Size(1600, 1200), isMaximized: false);
+        var plan = WindowPlacement.PlanMove(monitor, new Size(1600, 1200));
 
         Assert.Equal(new Rectangle(-288, -216, 1600, 1200), plan.TargetBounds);
     }
@@ -79,9 +55,43 @@ public class WindowPlacementTests
     [Fact]
     public void The_requested_size_is_used_as_is()
     {
-        var plan = WindowPlacement.PlanMove(new Rectangle(0, 0, 1920, 1080), new Size(1280, 720), isMaximized: false);
+        var plan = WindowPlacement.PlanMove(new Rectangle(0, 0, 1920, 1080), new Size(1280, 720));
 
         Assert.Equal(new Size(1280, 720), plan.TargetBounds.Size);
+    }
+
+    [Fact]
+    public void Workspace_coordinates_match_screen_coordinates_when_the_primary_monitor_has_no_offset()
+    {
+        // The common case: taskbar on the bottom or right, so the primary monitor's work
+        // area starts at (0, 0) same as its screen bounds.
+        var screenRect = new Rectangle(1920, 0, 1920, 1040);
+
+        var workspaceRect = WindowPlacement.ToWorkspaceCoordinates(screenRect, new Point(0, 0));
+
+        Assert.Equal(screenRect, workspaceRect);
+    }
+
+    [Fact]
+    public void Workspace_coordinates_subtract_the_primary_monitors_work_area_origin()
+    {
+        // Taskbar on the primary monitor's left edge pushes its work area's origin right by
+        // the taskbar's width - every rectangle's coordinates shift by that same amount.
+        var screenRect = new Rectangle(1920, 0, 1920, 1080);
+
+        var workspaceRect = WindowPlacement.ToWorkspaceCoordinates(screenRect, new Point(48, 0));
+
+        Assert.Equal(new Rectangle(1872, 0, 1920, 1080), workspaceRect);
+    }
+
+    [Fact]
+    public void Workspace_coordinates_can_go_negative_for_a_monitor_left_of_the_primary()
+    {
+        var screenRect = new Rectangle(-1920, 0, 1920, 1080);
+
+        var workspaceRect = WindowPlacement.ToWorkspaceCoordinates(screenRect, new Point(0, 0));
+
+        Assert.Equal(new Rectangle(-1920, 0, 1920, 1080), workspaceRect);
     }
 
     [Fact]
