@@ -2,24 +2,47 @@ using System.Drawing;
 
 namespace WindowMover.Core;
 
-// Where a non-maximized window should end up, worked out ahead of the actual Win32 call.
-// Maximized windows don't go through this - see MoveMaximizedWindowToScreen in Program.cs,
-// which repositions them directly via SetWindowPlacement instead of centring a size.
-public readonly record struct WindowMovePlan(Rectangle TargetBounds);
-
 public static class WindowPlacement
 {
-    // Work out where a window should end up on the given monitor, at the given size.
-    //
-    // The window is centred on the monitor; a window larger than the monitor ends up
-    // hanging off both edges evenly, which is what centring means. Where windowSize comes
-    // from is the caller's decision - see ProportionalSize below for the usual case.
-    public static WindowMovePlan PlanMove(Rectangle monitorBounds, Size windowSize)
+    // Where a window lands on the target monitor: as close as possible to the same relative
+    // position it had on the source monitor (independent per axis, same idea as
+    // ProportionalSize), but always adjusted to keep it fully on screen when its size
+    // allows - reproducing an off-screen position is never acceptable just because it
+    // matches where the window happened to be.
+    public static Rectangle ProportionalPosition(Rectangle sourceMonitorBounds, Rectangle currentWindowBounds, Rectangle targetMonitorBounds, Size windowSize)
+    {
+        double xRatio = (double)(currentWindowBounds.X - sourceMonitorBounds.X) / sourceMonitorBounds.Width;
+        double yRatio = (double)(currentWindowBounds.Y - sourceMonitorBounds.Y) / sourceMonitorBounds.Height;
+
+        int desiredX = targetMonitorBounds.X + (int)Math.Round(targetMonitorBounds.Width * xRatio);
+        int desiredY = targetMonitorBounds.Y + (int)Math.Round(targetMonitorBounds.Height * yRatio);
+
+        // Too wide for the monitor: hang off both side edges evenly, same as Centered - no
+        // position keeps the whole width in view, and neither edge matters more than the
+        // other here.
+        int x = windowSize.Width >= targetMonitorBounds.Width
+            ? targetMonitorBounds.X + (targetMonitorBounds.Width - windowSize.Width) / 2
+            : Math.Clamp(desiredX, targetMonitorBounds.X, targetMonitorBounds.X + targetMonitorBounds.Width - windowSize.Width);
+
+        // Too tall for the monitor: anchor to the top instead of centring. The title bar -
+        // and every control on it - lives along the top edge, so keeping that reachable
+        // matters far more than the bottom edge, which can hang off screen instead.
+        int y = windowSize.Height >= targetMonitorBounds.Height
+            ? targetMonitorBounds.Y
+            : Math.Clamp(desiredY, targetMonitorBounds.Y, targetMonitorBounds.Y + targetMonitorBounds.Height - windowSize.Height);
+
+        return new Rectangle(x, y, windowSize.Width, windowSize.Height);
+    }
+
+    // Centers a window of the given size on the monitor - used only when there's no current
+    // position to preserve (the window's bounds or monitor couldn't be read), so there's
+    // nothing for ProportionalPosition to work from.
+    public static Rectangle Centered(Rectangle monitorBounds, Size windowSize)
     {
         int x = monitorBounds.X + (monitorBounds.Width - windowSize.Width) / 2;
         int y = monitorBounds.Y + (monitorBounds.Height - windowSize.Height) / 2;
 
-        return new WindowMovePlan(new Rectangle(x, y, windowSize.Width, windowSize.Height));
+        return new Rectangle(x, y, windowSize.Width, windowSize.Height);
     }
 
     // SetWindowPlacement's rcNormalPosition is in "workspace coordinates", not the screen
@@ -49,4 +72,16 @@ public static class WindowPlacement
             (int)Math.Round(targetMonitorBounds.Width * widthRatio),
             (int)Math.Round(targetMonitorBounds.Height * heightRatio));
     }
+
+    // Never let a computed size exceed the monitor it's landing on. CompensateForTargetDpiResponse
+    // (Program.cs) deliberately inflates the size it hands back, betting that the target
+    // app's own DPI-change handling will shrink it back down a moment later - a bet that
+    // doesn't pay off for every app, and for a large-enough source window crossing onto a
+    // lower-DPI monitor, the inflated size can come out bigger than the monitor itself. A
+    // window slightly off from the "ideal" compensated size is fine; a window bigger than
+    // the screen it's on is not.
+    public static Size ClampToMonitor(Size size, Rectangle monitorBounds) =>
+        new Size(
+            Math.Min(size.Width, monitorBounds.Width),
+            Math.Min(size.Height, monitorBounds.Height));
 }

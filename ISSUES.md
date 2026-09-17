@@ -4,7 +4,28 @@ Working notes on open problems with WindowMover, kept so we stop re-deriving the
 same facts. Update this file as issues get resolved or new facts are found -
 don't let it go stale.
 
-## 1. Side-button passthrough
+## 1. Non-maximized window size changes unexpectedly between the user's two monitors - CONFIRMED WORKING, keep an eye on it
+
+**The user's hardware, for reference - stop asking:** a 1440p monitor at 125%
+Windows scaling, and a 1080p monitor at 100% scaling.
+
+**Symptom:** moving a non-maximized window between these two monitors gives
+the wrong size. Reported forms so far: way too big; ~20% short on height
+moving 1440p->1080p; scaling not respected at all (moving either direction,
+after compensation was removed). Root cause in play: `CompensateForTarget
+DpiResponse` inflates/deflates the size, betting the target app's own
+`WM_DPICHANGED` handling will correct it back afterward.
+
+**Tried so far - keep this updated, don't repeat a row:**
+| Attempt | Result |
+|---|---|
+| Do nothing different (original `5818b7f` logic) | Way too large moving to 1080p - inflation exceeds the monitor |
+| Add `ClampToMonitor` after compensation | Fixed "too large," but ~20% short on height - clamp truncates the value the app then shrinks *again* |
+| Switch `target.Bounds` -> `target.WorkingArea` (avoid taskbar overlap) | Same undershoot persisted, now on both directions |
+| Remove `CompensateForTargetDpiResponse` entirely | Scaling not respected at all - the app really does auto-correct, so leaving it uncompensated is wrong |
+| Clamp the *intended* size first, compensate that clamped value after (current) | User confirmed working |
+
+## 2. Side-button passthrough
 
 **Symptom:** holding Mouse4/5 to move a window also fires whatever that button
 normally does in the focused app - confirmed in practice (releasing Mouse4 over
@@ -53,7 +74,7 @@ anyway, build the whole-pair-swallow + replay redesign above and test it in a
 disposable VM first - it must not touch the user's primary machine again
 until proven safe there.
 
-## 2. Non-maximized window moves flicker more than a plain drag
+## 3. Non-maximized window moves flicker more than a plain drag
 
 **Symptom:** moving a normal (non-maximized) window with WindowMover visibly
 flickers/redraws noticeably more than just dragging the same window with the
@@ -77,13 +98,3 @@ a related-but-different flicker problem (moving a *maximized* window) was
 fixed via `SetWindowPlacement` (see git log), but that fix doesn't apply here
 since a maximized window's target size is fixed (the monitor's working area)
 in a way a proportionally-sized normal window's isn't.
-
-## 3. Smaller items
-
-- **Tray icon**: ships with `SystemIcons.Application` (generic) and a stale
-  `// Replace with your turtle icon if desired` comment.
-- **Window size persistence**: the fallback size resets to 800x600 on every
-  restart. `WindowWidth`/`WindowHeight` (`Program.cs:38-39`) are plain
-  in-memory `static int` fields, never read from or written to the registry -
-  confirmed still true, not yet revisited since proportional sizing became
-  the primary behavior for the common case.

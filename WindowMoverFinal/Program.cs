@@ -35,9 +35,10 @@ class Program
     // Remembers which extra buttons are pressed and which window they grabbed
     private static readonly ButtonComboTracker buttons = new();
 
-    // Adjustable window size - default dimensions for moved windows
-    private static int WindowWidth = 800;
-    private static int WindowHeight = 600;
+    // Fallback size for a maximized window's remembered restored size, and for the rare
+    // case a window's current bounds or monitor can't be read - see DetermineWindowSize.
+    private const int WindowWidth = 800;
+    private const int WindowHeight = 600;
 
     // --------------------------- Structs ---------------------------
     // Structure for screen coordinates
@@ -139,38 +140,13 @@ class Program
         var startupItem = new ToolStripMenuItem("Start with Windows", null, (s, e) => ToggleStartup((ToolStripMenuItem)s))
         { Checked = IsStartupEnabled() };
 
-        // "Set Window Size" menu item - allows customizing default window dimensions
-        var sizeItem = new ToolStripMenuItem("Set Window Size", null, (s, e) =>
-        {
-            try
-            {
-                // Prompt user for width and height
-                string widthStr = Microsoft.VisualBasic.Interaction.InputBox("Enter window width:", "Set Window Size", WindowWidth.ToString());
-                string heightStr = Microsoft.VisualBasic.Interaction.InputBox("Enter window height:", "Set Window Size", WindowHeight.ToString());
-
-                // Validate and update dimensions
-                if (int.TryParse(widthStr, out int w) && int.TryParse(heightStr, out int h))
-                {
-                    if (w > 0 && h > 0)
-                    {
-                        WindowWidth = w;
-                        WindowHeight = h;
-                        trayIcon.ShowBalloonTip(1000, "Window Mover", $"Window size set to {w}x{h}", ToolTipIcon.Info);
-                    }
-                }
-            }
-            catch { }
-        });
-
         // Build the context menu
         trayMenu.Items.Add(startupItem);
-        trayMenu.Items.Add(sizeItem);
         trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("About", null, (s, e) => MessageBox.Show(
             "Window Mover\n\n" +
             "• Mouse4 + Mouse3 (or Mouse5 + Mouse3) = Cycle to next monitor\n" +
-            "• Mouse4 + Mouse5 + Mouse3 = Move to cursor's monitor\n\n" +
-            $"• Current window size: {WindowWidth}x{WindowHeight}",
+            "• Mouse4 + Mouse5 + Mouse3 = Move to cursor's monitor",
             "About", MessageBoxButtons.OK, MessageBoxIcon.Information));
         trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("Exit", null, (s, e) => { trayIcon.Visible = false; Application.Exit(); });
@@ -289,12 +265,10 @@ class Program
             return;
         }
 
-        Size windowSize = DetermineWindowSize(hwnd, target);
-        var plan = WindowPlacement.PlanMove(target.Bounds, windowSize);
+        Rectangle bounds = DetermineWindowBounds(hwnd, target);
 
         SetWindowPos(hwnd, IntPtr.Zero,
-            plan.TargetBounds.X, plan.TargetBounds.Y,
-            plan.TargetBounds.Width, plan.TargetBounds.Height,
+            bounds.X, bounds.Y, bounds.Width, bounds.Height,
             SWP_NOZORDER | SWP_NOACTIVATE);
     }
 
@@ -352,44 +326,56 @@ class Program
     // rare case GetWindowPlacement/SetWindowPlacement itself fails.
     private static void MoveMaximizedWindowTheSlowWay(IntPtr hwnd, Screen target)
     {
-        var plan = WindowPlacement.PlanMove(target.Bounds, new Size(WindowWidth, WindowHeight));
+        var bounds = WindowPlacement.Centered(target.Bounds, new Size(WindowWidth, WindowHeight));
 
         ShowWindow(hwnd, SW_RESTORE);
         SetWindowPos(hwnd, IntPtr.Zero,
-            plan.TargetBounds.X, plan.TargetBounds.Y,
-            plan.TargetBounds.Width, plan.TargetBounds.Height,
+            bounds.X, bounds.Y, bounds.Width, bounds.Height,
             SWP_NOZORDER | SWP_NOACTIVATE);
         ShowWindow(hwnd, SW_MAXIMIZE);
     }
 
-    // The size to move a non-maximized window to, keeping the same percentage of screen it
-    // had before so it does not look tiny dragged onto a much bigger monitor or hang off the
-    // edges of a much smaller one - see WindowPlacement.ProportionalSize. Falls back to the
-    // configured default when the window's current bounds or monitor cannot be determined,
-    // same as the app has always done.
-    private static Size DetermineWindowSize(IntPtr hwnd, Screen target)
+    // Where and what size a non-maximized window should become: it lands at the same
+    // relative position it had on its source monitor, at the same percentage of screen size
+    // it had before, so it neither jumps to an unrelated spot nor looks tiny/oversized
+    // crossing between differently sized monitors - see WindowPlacement.ProportionalPosition
+    // and ProportionalSize. Falls back to a fixed size centered on the target monitor when
+    // the window's current bounds or monitor can't be determined, same as the app has
+    // always done.
+    private static Rectangle DetermineWindowBounds(IntPtr hwnd, Screen target)
     {
-        var fallback = new Size(WindowWidth, WindowHeight);
+        var fallbackSize = new Size(WindowWidth, WindowHeight);
 
-        if (!GetWindowRect(hwnd, out RECT r)) return fallback;
+        if (!GetWindowRect(hwnd, out RECT r)) return WindowPlacement.Centered(target.WorkingArea, fallbackSize);
 
+        Rectangle currentBounds = ToRectangle(r);
         Screen[] screens = Screen.AllScreens;
-        var layout = new MonitorLayout(Array.ConvertAll(screens, s => s.Bounds));
-        int sourceIndex = layout.IndexOfMonitorShowing(ToRectangle(r));
-        if (sourceIndex < 0) return fallback; // no monitors at all
+        var layout = new MonitorLayout(Array.ConvertAll(screens, s => s.WorkingArea));
+        int sourceIndex = layout.IndexOfMonitorShowing(currentBounds);
+        if (sourceIndex < 0) return WindowPlacement.Centered(target.WorkingArea, fallbackSize); // no monitors at all
 
-        Size size = WindowPlacement.ProportionalSize(layout[sourceIndex], ToRectangle(r).Size, target.Bounds);
-        return CompensateForTargetDpiResponse(hwnd, size, target.Bounds);
+        Rectangle sourceWorkingArea = layout[sourceIndex];
+
+        // Clamp the plain proportional size to the monitor FIRST, then compensate - not the
+        // other way round. Compensating first and clamping the (inflated) result afterward
+        // means a target app that really does auto-correct on WM_DPICHANGED ends up shrinking
+        // the already-clamped value a second time, undershooting badly. Clamping the intended
+        // size first and compensating that gives the right settled size either way: correct
+        // after the app's own correction if it auto-corrects, and still monitor-safe if it
+        // doesn't (bounded overshoot from the compensation itself, not unbounded).
+        Size intendedSize = WindowPlacement.ProportionalSize(sourceWorkingArea, currentBounds.Size, target.WorkingArea);
+        intendedSize = WindowPlacement.ClampToMonitor(intendedSize, target.WorkingArea);
+        Size size = CompensateForTargetDpiResponse(hwnd, intendedSize, target.WorkingArea);
+
+        return WindowPlacement.ProportionalPosition(sourceWorkingArea, currentBounds, target.WorkingArea, size);
     }
 
     // Crossing onto a monitor with a different DPI scale, a per-monitor-DPI-aware target
     // window (most modern apps) gets WM_DPICHANGED and, by default, resizes itself by
     // (targetDpi / sourceDpi) - asynchronously, after this app's own SetWindowPos already
     // returned, silently overriding whatever size was just set. Pre-dividing by that same
-    // ratio here cancels it out. This only helps windows using the *default* linear
-    // response - at least one real app (Windows Terminal, which keeps its row/column count
-    // constant instead) is confirmed to override it with its own logic, so this improves
-    // the common case without being a guaranteed fix for every app.
+    // ratio here cancels it out, landing back at intendedSize once the target app's own
+    // correction has happened.
     private static Size CompensateForTargetDpiResponse(IntPtr hwnd, Size intendedSize, Rectangle targetMonitorBounds)
     {
         // Only per-monitor-DPI-aware windows receive WM_DPICHANGED at all - compensating
