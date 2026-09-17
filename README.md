@@ -5,9 +5,11 @@ buttons on your mouse.
 
 ## Why
 
-Windows can move a focused window to the adjacent monitor with `Win+Shift+Arrow`,
-but only one hop at a time, in a fixed direction. Nothing built-in sends a window
-straight to whichever monitor the cursor is on.
+Windows can already cycle a focused window to the adjacent monitor with
+`Win+Shift+Arrow`, but that means reaching for the keyboard. WindowMover does
+the same hop, plus the one thing nothing built-in does at all - straight to
+wherever the cursor happens to be - entirely from the mouse: hold a side
+button, middle-click.
 
 What exists instead, and where they fall short:
 
@@ -24,10 +26,10 @@ What exists instead, and where they fall short:
   tiny system UI), and maximized windows are skipped entirely rather than
   restored, moved and remaximized.
 
-WindowMover is this feature on its own: free, five files, triggered by a mouse
-chord (hold a side button, middle-click) instead of a hotkey or a script to write
-and maintain. `WindowMoveFilter`, `MonitorLayout` and `WindowPlacement` are covered
-by the test suite against exactly the gaps listed above.
+WindowMover is this feature on its own: free, and nothing to write or maintain
+like an AutoHotkey script. `WindowMoveFilter`, `MonitorLayout` and
+`WindowPlacement` are covered by the test suite against exactly the gaps
+listed above.
 
 ## Controls
 
@@ -46,8 +48,13 @@ The taskbar, desktop icons, tool windows and very small UI elements are skipped.
 Run `WindowMover.exe`. It appears in the system tray. Right-click the tray icon for:
 
 - **Start with Windows** — toggle auto-launch on login
-- **Set Window Size** — width and height for moved windows (default 800×600,
-  resets on restart)
+- **Hide window during monitor-crossing resize** — on by default. Some apps
+  briefly resize themselves wrong right after a monitor-crossing move before
+  WindowMover corrects them; this hides the window for that moment instead of
+  showing the wrong size. Trade-off: hiding is a real visibility change, and
+  at least one app (Chrome, for YouTube's spacebar-to-pause) reacts to it by
+  dropping its own keyboard focus, even though general typing is unaffected.
+  Turn this off if that bothers you.
 - **About** — controls and current settings
 - **Exit**
 
@@ -57,8 +64,14 @@ Only one instance runs at a time.
 
 A low-level mouse hook (`WH_MOUSE_LL`) intercepts Mouse4 and Mouse5 events
 system-wide. When a side button is held and the middle button is pressed, the
-window moves to the target monitor. A maximized window is restored first and
-re-maximized afterwards.
+window moves to the target monitor. A maximized window is moved directly via
+`SetWindowPlacement` onto the target monitor's own working area, still
+maximized, rather than visibly restoring and re-maximizing.
+
+Some apps resize themselves the moment they detect a DPI change between
+differently-scaled monitors, overriding the size WindowMover just set.
+`DpiCorrectionScheduler` watches for that reactively (via
+`EVENT_OBJECT_LOCATIONCHANGE`, not polling) and corrects it back.
 
 ## Project layout
 
