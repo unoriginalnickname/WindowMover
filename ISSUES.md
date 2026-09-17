@@ -78,7 +78,9 @@ until proven safe there.
 
 **Symptom:** moving a normal (non-maximized) window with WindowMover visibly
 flickers/redraws noticeably more than just dragging the same window with the
-mouse. Not yet investigated in depth.
+mouse. Not yet investigated in depth. Concrete repro: a browser playing a
+YouTube video - the video/page content visibly flickers on a WindowMover
+move, but not when the same window is dragged by hand.
 
 **Likely cause, not yet confirmed:** `MoveWindowToScreen`'s non-maximized path
 changes size and position in the same `SetWindowPos` call, since proportional
