@@ -35,13 +35,23 @@ listed above.
 
 | Shortcut | Action |
 |---|---|
-| Mouse4 + middle click | Move the window to the next monitor |
 | Mouse5 + middle click | Move the window to the next monitor |
-| Mouse4 + Mouse5 + middle click | Move the window to the monitor your cursor is on |
+| Mouse4 + middle click | Move the window to the monitor your cursor is on |
+| Mouse4 + Mouse5 + middle click | Same as Mouse4 alone - the monitor your cursor is on |
 
 Mouse4 is the back thumb button and Mouse5 the forward one, on most mice.
+Mouse4 always wins when both are held - Mouse5 only gets its own meaning
+(cycle to the next monitor) when held on its own.
 
 The taskbar, desktop icons, tool windows and very small UI elements are skipped.
+
+**Where to put the cursor:** WindowMover captures whichever window is currently
+active the instant you press Mouse4/Mouse5, not whatever's under the cursor.
+If your cursor is resting over a *different* window at that moment, that
+click can activate it first, and WindowMover ends up moving that window
+instead of the one you meant. Hovering over the target window's **taskbar
+icon** when you press the side button avoids this - clicking there doesn't
+hand focus to some other on-screen window.
 
 ## Installation
 
