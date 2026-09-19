@@ -174,7 +174,7 @@ public class WindowMoveLiveTests
 
         host.MoveToScreen(window.Handle, Target);
 
-        // Generous, because it must outlast the scheduler's own hard deadline: if the watch
+        // Generous, because it must outlast the watcher's own hard deadline: if the watch
         // never settles, that deadline is what ends it, and the window must come back either way.
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(8);
         while (DateTime.UtcNow < deadline && (GetWindowLong(window.Handle, GWL_EXSTYLE) & WS_EX_LAYERED) != 0)
@@ -202,7 +202,7 @@ public class WindowMoveLiveTests
         host.MoveToScreen(window.Handle, target);
 
         // Watch across the whole correction: it ends on its own, but never later than the
-        // scheduler's hard deadline.
+        // watcher's hard deadline.
         bool everHidden = false;
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(6);
         while (DateTime.UtcNow < deadline)

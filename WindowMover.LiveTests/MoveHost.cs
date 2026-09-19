@@ -7,14 +7,14 @@ namespace WindowMover.LiveTests;
 //
 //   - The move must run on a thread with a message loop. In the app it always does: the mouse
 //     hook callback is delivered on the thread that installed the hook. Parts of a move depend
-//     on that - the bring-to-front pass is a WinForms timer, and a WinForms timer only ticks
+//     on that - MoveSettleWatcher debounces on a WinForms timer, and one only ticks
 //     while something is pumping messages. Called from an xUnit thread, those parts would
 //     never run and the test would quietly be exercising a shape of the code that does not
 //     exist in the app.
 //   - Whatever a move left running has to be shut down afterwards. MoveSettleWatcher
 //     keeps static per-window state and installs a system-wide WinEvent hook while a
 //     correction is pending. Left behind, each test leaks a hook and hands the next test a
-//     scheduler that still believes in windows that have since been destroyed.
+//     watcher that still believes in windows that have since been destroyed.
 internal sealed class MoveHost : IDisposable
 {
     private readonly MessageLoopThread loop = new();

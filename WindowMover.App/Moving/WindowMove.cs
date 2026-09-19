@@ -65,7 +65,7 @@ internal static class WindowMove
         // anything not per-monitor-DPI-aware) - waiting would leave those stuck wrong
         // forever. The few that do get overridden are caught and corrected reactively
         // afterwards instead.
-        TransparencyRestore? hidden = WindowTransparency.TryHideIfEnabled(hwnd);
+        TransparencyRestore? hidden = WindowTransparency.HideIfEnabled(hwnd);
         SetBounds(hwnd, bounds);
         MoveSettleWatcher.KeepSizeUntilSettled(hwnd, bounds, hidden);
     }
@@ -116,7 +116,7 @@ internal static class WindowMove
         // is what reads as the move juddering rather than happening. The window is put back
         // once it stops moving - the maximize animation runs on after ShowWindow returns, so
         // revealing here would show the tail of exactly what this is hiding.
-        TransparencyRestore? hidden = WindowTransparency.TryHideIfEnabled(hwnd);
+        TransparencyRestore? hidden = WindowTransparency.HideIfEnabled(hwnd);
 
         ShowWindow(hwnd, SW_RESTORE);
         SetBounds(hwnd, landing, "maximized move");

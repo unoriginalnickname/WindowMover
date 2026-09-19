@@ -54,7 +54,7 @@ internal static class MoveSettleWatcher
         if (!pendingWatches.TryGetValue(hwnd, out var pending)) return;
 
         EndWatch(hwnd, pending);
-        DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: abandoned - user began an interactive move/resize");
+        DebugLog.Write($"{Label(pending)} [{DebugLog.DescribeWindowProcess(hwnd)}]: abandoned - user began an interactive move/resize");
     }
 
     private sealed class PendingWatch
@@ -149,7 +149,7 @@ internal static class MoveSettleWatcher
         if (RoughlyEqual(ToRectangle(r), wanted)) return; // already correct
 
         ForceBounds(hwnd, wanted);
-        DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: resolved pending correction early to fallback={wanted} before a new move");
+        DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: resolved pending correction early to wanted={wanted} before a new move");
     }
 
     // A location-change event means this window's bounds just changed, for any reason - reset
@@ -191,20 +191,26 @@ internal static class MoveSettleWatcher
         if (!pendingWatches.TryGetValue(hwnd, out var pending)) return;
 
         string process = DebugLog.DescribeWindowProcess(hwnd);
-        if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone"); EndWatch(hwnd, pending); return; }
-        if (IsZoomed(hwnd)) { DebugLog.Write($"DPI correction [{process}]: now maximized, abandoning correction"); EndWatch(hwnd, pending); return; }
+        if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"{Label(pending)} [{process}]: window gone"); EndWatch(hwnd, pending); return; }
 
+        // Asked before the IsZoomed check below, not after it. A maximized move ends with the
+        // window maximized - that is the whole point of it - so a zoomed-first order sends
+        // every single one of those down the "abandoning correction" path and leaves this
+        // message unreachable. Both paths reveal the window, so what that cost was not the
+        // behavior but the log: 261KB of it, every maximized move filed under the wrong reason.
         if (pending.SizeToKeep is not { } wanted)
         {
-            DebugLog.Write($"Move [{process}]: window settled after a maximized move, revealing");
+            DebugLog.Write($"Move watch [{process}]: window settled after a maximized move, revealing");
             EndWatch(hwnd, pending);
             return;
         }
 
+        if (IsZoomed(hwnd)) { DebugLog.Write($"DPI correction [{process}]: now maximized, abandoning correction"); EndWatch(hwnd, pending); return; }
+
         Rectangle actual = ToRectangle(r);
         if (RoughlyEqual(actual, wanted))
         {
-            DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={wanted} (settled)");
+            DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches wanted={wanted} (settled)");
             EndWatch(hwnd, pending);
             return;
         }
@@ -212,8 +218,8 @@ internal static class MoveSettleWatcher
         bool outOfTime = DateTime.UtcNow >= pending.Deadline;
         bool applied = ForceBounds(hwnd, wanted);
         DebugLog.Write(outOfTime
-            ? $"DPI correction [{process}]: actual={actual} hit max correction window -> fallback={wanted}, applied={applied}, giving up"
-            : $"DPI correction [{process}]: actual={actual} settled wrong -> fallback={wanted}, applied={applied}");
+            ? $"DPI correction [{process}]: actual={actual} hit max correction window -> wanted={wanted}, applied={applied}, giving up"
+            : $"DPI correction [{process}]: actual={actual} settled wrong -> wanted={wanted}, applied={applied}");
 
         if (outOfTime) { EndWatch(hwnd, pending); return; }
 
@@ -222,6 +228,12 @@ internal static class MoveSettleWatcher
         // keep happening.
         pending.DebounceTimer = StartDebounceTimer(hwnd);
     }
+
+    // Which of the two watches this is, for the log. A watch with a size to police is a DPI
+    // correction; one without is a maximized move waiting to be revealed. They end for
+    // different reasons and a line that names the wrong one sends you looking in the wrong
+    // place - which is exactly what "abandoning correction" did for every maximized move.
+    private static string Label(PendingWatch watch) => watch.SizeToKeep is null ? "Move watch" : "DPI correction";
 
     private static bool ForceBounds(IntPtr hwnd, Rectangle bounds) =>
         SetWindowPos(hwnd, IntPtr.Zero,

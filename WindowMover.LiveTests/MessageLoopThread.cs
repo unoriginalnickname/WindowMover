@@ -4,10 +4,10 @@ namespace WindowMover.LiveTests;
 //
 // The app's move code always runs on a thread that has one: the mouse hook callback is
 // delivered on the thread that installed the hook, which is the app's own message loop.
-// Parts of the move rely on that - the bring-to-front pass is a WinForms timer, and a
-// WinForms timer only ever ticks while something is pumping messages. Calling the move
-// straight from an xUnit thread would silently skip those parts and the tests would be
-// asserting against a shape of the code that never runs in the app.
+// Parts of the move rely on that - MoveSettleWatcher debounces on a WinForms timer and the
+// indicator is a Form of this app's own, and neither ticks nor paints unless something is
+// pumping messages. Calling the move straight from an xUnit thread would silently skip those
+// parts and the tests would be asserting against a shape of the code that never runs.
 internal sealed class MessageLoopThread : IDisposable
 {
     private readonly Thread thread;

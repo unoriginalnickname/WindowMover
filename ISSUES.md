@@ -11,6 +11,33 @@ No open issues.
 
 # Past issues (resolved)
 
+## #7 - Every maximized move was logged under the wrong reason, 2026-09-19
+
+Found while splitting `WindowMoveActions` and `DpiCorrectionScheduler` into one
+file per job. The watch that ends a move has two kinds: one with a size to
+police (a DPI correction) and one without (a maximized move, waiting only for
+the window to stop moving so it can be revealed). `OnSettled` tested
+`IsZoomed(hwnd)` before asking which kind it was - and a maximized move ends
+with the window maximized, that being the entire point of it. So every
+maximized move took the zoomed branch and logged `now maximized, abandoning
+correction`, and the message written for the maximized case was unreachable
+code.
+
+Nothing misbehaved: both branches end the watch through the same choke point,
+so the window was always revealed. The cost was the log, which is the only
+instrument this half of the app has - the DPI self-correction quirks in #3 were
+found through it. Measured: 261KB of accumulated log contained zero occurrences
+of `window settled after a maximized move, revealing`. After reordering the two
+checks, the first live run produced it.
+
+The tests did not catch this and could not have: they assert on what the window
+ends up doing, which was right the whole time. A log line that names the wrong
+cause is only visible to someone reading the log against the code that wrote it.
+Log lines now also say which kind of watch they came from (`Move watch` vs `DPI
+correction`), so the two cannot be confused again, and the variable that `wanted=`
+prints is called that in the code too - it used to print `fallback=`, a word left
+over from a design that no longer exists.
+
 ## #6 - A moved window cannot be made to come to the front, 2026-09-19
 
 Moving a window onto a monitor that already had windows on it could leave it

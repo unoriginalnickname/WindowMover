@@ -31,7 +31,7 @@ internal static class WindowTransparency
     // is no single alpha to read, and setting one would replace the window's own compositing
     // with a flat value this could never put back. Those windows keep the visible flash,
     // which is a far smaller harm than leaving an app's appearance permanently altered.
-    public static TransparencyRestore? TryHide(IntPtr hwnd)
+    private static TransparencyRestore? TryHide(IntPtr hwnd)
     {
         uint style = GetWindowLong(hwnd, GWL_EXSTYLE);
         string process = DebugLog.DescribeWindowProcess(hwnd);
@@ -71,7 +71,7 @@ internal static class WindowTransparency
 
     // Hides the window only if the user left the tray toggle on, so no caller has to check
     // it first. Null either way when nothing was hidden.
-    public static TransparencyRestore? TryHideIfEnabled(IntPtr hwnd) =>
+    public static TransparencyRestore? HideIfEnabled(IntPtr hwnd) =>
         HideWhileMoving ? TryHide(hwnd) : null;
 
     // Undoes TryHide, using what it reported at the time. A window this app made layered is
