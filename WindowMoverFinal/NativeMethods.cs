@@ -21,6 +21,9 @@ internal static class NativeMethods
     public const int SW_SHOWNA = 8;                  // Show window in its current state, without activating it
     public const uint SWP_NOZORDER = 0x0004;         // Don't change Z-order when repositioning
     public const uint SWP_NOACTIVATE = 0x0010;       // Don't activate window when repositioning
+    public const uint SWP_NOSIZE = 0x0001;           // Keep the window's current size
+    public const uint SWP_NOMOVE = 0x0002;           // Keep the window's current position
+    public static readonly IntPtr HWND_TOP = IntPtr.Zero; // Top of the non-topmost Z-order
 
     // Window style constants
     public const int GWL_EXSTYLE = -20;              // Extended window style index
@@ -84,6 +87,11 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool UnhookWindowsHookEx(IntPtr hhk);
     [DllImport("user32.dll")] public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    // Momentarily joins two threads' input queues - the documented way out of the foreground
+    // lock that otherwise refuses SetForegroundWindow from a background process like this one.
+    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
     [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr hWnd);

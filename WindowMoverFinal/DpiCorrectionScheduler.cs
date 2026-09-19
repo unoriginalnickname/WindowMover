@@ -52,6 +52,11 @@ internal static class DpiCorrectionScheduler
         public required System.Windows.Forms.Timer DebounceTimer;
         public required Rectangle FallbackBounds;
         public required DateTime Deadline;
+        // Whether WindowMoveActions hid this window for the duration of the correction, and
+        // therefore whether revealing it also has to put it back in front - hiding the
+        // foreground window hands the foreground to whatever was behind it, and SW_SHOWNA
+        // deliberately doesn't take it back.
+        public required bool BringToFrontOnReveal;
     }
 
     // Keyed by hwnd, not a flat list: confirmed bug (ISSUES.md #3) - moving the same window
@@ -112,7 +117,7 @@ internal static class DpiCorrectionScheduler
         DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: resolved pending correction early to fallback={pending.FallbackBounds} before a new move");
     }
 
-    public static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds)
+    public static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds, bool bringToFrontOnReveal)
     {
         // Any prior pending correction for this window was already resolved at the top of
         // MoveWindowToScreen, before this move's own bounds were even calculated.
@@ -122,7 +127,8 @@ internal static class DpiCorrectionScheduler
         {
             DebounceTimer = null!,
             FallbackBounds = fallbackBounds,
-            Deadline = DateTime.UtcNow.AddMilliseconds(MaxTotalCorrectionWindowMs)
+            Deadline = DateTime.UtcNow.AddMilliseconds(MaxTotalCorrectionWindowMs),
+            BringToFrontOnReveal = bringToFrontOnReveal
         };
         pending.DebounceTimer = StartDebounceTimer(hwnd);
         pendingDpiCorrections[hwnd] = pending;
@@ -211,6 +217,9 @@ internal static class DpiCorrectionScheduler
         pendingDpiCorrections.Remove(hwnd);
         if (pendingDpiCorrections.Count == 0) UninstallLocationChangeWatcher();
         ShowWindow(hwnd, SW_SHOWNA);
+        // Only for a window this app actually hid: anything else here is already wherever the
+        // user left it, and yanking it forward would be a change nobody asked for.
+        if (pending.BringToFrontOnReveal) WindowMoveActions.BringToFront(hwnd);
     }
 
     private static void EnsureLocationChangeWatcherInstalled()

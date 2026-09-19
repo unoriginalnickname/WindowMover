@@ -19,6 +19,14 @@ internal static class WindowMoveActions
     private const int WindowWidth = 800;
     private const int WindowHeight = 600;
 
+    // How long to wait after a move before forcing the window to the front. This can't be
+    // done inline: the middle click that triggers the move has NOT been delivered yet when
+    // the hook runs - it goes out to whatever sits under the cursor on the target monitor
+    // straight afterwards, and clicking a background window activates it, dropping the
+    // window we just moved right back behind it. Waiting a beat on the message loop lets
+    // that click land first, so ours is the last word on the Z-order.
+    private const int BringToFrontDelayMs = 60;
+
     // Progman and Shell_TrayWnd are singleton top-level windows that exist for the lifetime
     // of the Explorer shell - looked up once and cached rather than on every move gesture,
     // since IsSafeMovableWindow runs twice per move (capture, then move) and every uncached
@@ -81,6 +89,8 @@ internal static class WindowMoveActions
         // instead of a stale timer doing that later regardless of which path ran.
         DpiCorrectionScheduler.ResolvePendingDpiCorrection(hwnd);
 
+        DebugLog.Write($"Move [{DebugLog.DescribeWindowProcess(hwnd)}]: hwnd={hwnd}, maximized={IsZoomed(hwnd)}, foreground={(GetForegroundWindow() == hwnd)} -> monitor {target.DeviceName} {target.Bounds}");
+
         if (IsZoomed(hwnd))
         {
             MoveMaximizedWindowToScreen(hwnd, target);
@@ -111,15 +121,21 @@ internal static class WindowMoveActions
             // anything not per-monitor-DPI-aware) - waiting would leave those stuck wrong
             // forever. The few that do get overridden are caught and corrected reactively
             // by DpiCorrectionScheduler below instead.
-            if (HideDuringDpiCorrection) ShowWindow(hwnd, SW_HIDE);
+            bool hidden = HideDuringDpiCorrection;
+            if (hidden) ShowWindow(hwnd, SW_HIDE);
             SetWindowPos(hwnd, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, SWP_NOZORDER | SWP_NOACTIVATE);
-            DpiCorrectionScheduler.ScheduleDpiCompensationCheck(hwnd, bounds);
+            // A hidden window can't be raised or focused, and it is revealed later, once the
+            // correction ends - so the scheduler does the bring-to-front at that point
+            // instead, from the single place that un-hides it.
+            DpiCorrectionScheduler.ScheduleDpiCompensationCheck(hwnd, bounds, bringToFrontOnReveal: hidden);
+            if (!hidden) BringToFrontAfterClickLands(hwnd);
         }
         else
         {
             SetWindowPos(hwnd, IntPtr.Zero,
                 bounds.X, bounds.Y, bounds.Width, bounds.Height,
                 SWP_NOZORDER | SWP_NOACTIVATE);
+            BringToFrontAfterClickLands(hwnd);
         }
     }
 
@@ -171,6 +187,7 @@ internal static class WindowMoveActions
         // work, so the code does the same thing instead of leaving it to the user.
         ShowWindow(hwnd, SW_MINIMIZE);
         ShowWindow(hwnd, SW_MAXIMIZE);
+        BringToFrontAfterClickLands(hwnd);
     }
 
     // The original restore -> move -> maximize sequence, kept only as a fallback for the
@@ -184,6 +201,7 @@ internal static class WindowMoveActions
             bounds.X, bounds.Y, bounds.Width, bounds.Height,
             SWP_NOZORDER | SWP_NOACTIVATE);
         ShowWindow(hwnd, SW_MAXIMIZE);
+        BringToFrontAfterClickLands(hwnd);
     }
 
     // Where and what size a non-maximized window should become: it lands at the same
@@ -260,5 +278,71 @@ internal static class WindowMoveActions
         if (!layout.TryGetNextMonitorIndex(current, out int next)) return; // needs at least 2 monitors
 
         MoveWindowToScreen(hwnd, screens[next]);
+    }
+
+    // Defers BringToFront by one short beat - see BringToFrontDelayMs for why it can't just
+    // be called inline. A WinForms timer keeps this on the app's message-loop thread (the
+    // same thread the mouse hook runs on), so nothing here needs to be thread-safe.
+    private static void BringToFrontAfterClickLands(IntPtr hwnd)
+    {
+        var timer = new System.Windows.Forms.Timer { Interval = BringToFrontDelayMs };
+        timer.Tick += (s, e) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            BringToFront(hwnd);
+        };
+        timer.Start();
+    }
+
+    // Raises a window to the top of the Z-order and gives it focus. Moving a window onto a
+    // monitor that already has windows on it otherwise leaves it wherever it was in the
+    // Z-order - which, for a window that wasn't in front to begin with, means it lands
+    // behind them and looks like nothing happened.
+    //
+    // Windows' foreground lock normally refuses SetForegroundWindow from a background
+    // process like this one (it returns false and does nothing but flash the taskbar
+    // button). The documented exception is a thread whose input queue is attached to the
+    // current foreground thread's, so that's the fallback. The attach is released again
+    // immediately: while attached the two threads share an input queue, and staying that
+    // way any longer than the one call risks this app's input being held up by another
+    // app's stalled message loop.
+    public static void BringToFront(IntPtr hwnd)
+    {
+        if (!IsWindow(hwnd)) return;
+
+        IntPtr foreground = GetForegroundWindow();
+        if (foreground == hwnd) return; // already in front - touch nothing
+
+        string process = DebugLog.DescribeWindowProcess(hwnd);
+
+        // Z-order first, and on its own: this is not subject to the foreground lock, so even
+        // when activation below is refused the window is at least visible on top of the
+        // others rather than buried behind them.
+        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+        if (SetForegroundWindow(hwnd))
+        {
+            DebugLog.Write($"Bring to front [{process}]: activated directly");
+            return;
+        }
+
+        uint ourThread = GetCurrentThreadId();
+        uint foregroundThread = foreground == IntPtr.Zero ? 0 : GetWindowThreadProcessId(foreground, out _);
+        if (foregroundThread == 0 || foregroundThread == ourThread)
+        {
+            DebugLog.Write($"Bring to front [{process}]: refused, raised only (no other foreground thread to attach to)");
+            return;
+        }
+
+        if (!AttachThreadInput(ourThread, foregroundThread, true))
+        {
+            DebugLog.Write($"Bring to front [{process}]: refused, raised only (input attach failed)");
+            return;
+        }
+
+        bool activated = SetForegroundWindow(hwnd);
+        AttachThreadInput(ourThread, foregroundThread, false);
+        DebugLog.Write($"Bring to front [{process}]: activated via input attach={activated}");
     }
 }

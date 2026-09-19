@@ -78,6 +78,12 @@ window moves to the target monitor. A maximized window is moved directly via
 `SetWindowPlacement` onto the target monitor's own working area, still
 maximized, rather than visibly restoring and re-maximizing.
 
+A moved window is brought to the front and focused once it lands, so it can't
+arrive buried behind whatever was already on that monitor. That happens a beat
+after the click rather than immediately: the middle click hasn't been delivered
+yet when the hook runs, and if it lands on a background window it activates that
+window - putting it straight back over the one just moved.
+
 Some apps resize themselves the moment they detect a DPI change between
 differently-scaled monitors, overriding the size WindowMover just set.
 `DpiCorrectionScheduler` watches for that reactively (via
