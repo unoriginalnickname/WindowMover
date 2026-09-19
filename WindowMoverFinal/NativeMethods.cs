@@ -14,10 +14,8 @@ internal static class NativeMethods
     public const int XBUTTON2 = 0x0002;              // Mouse button 5 identifier
 
     // Window Management Constants
-    public const int SW_HIDE = 0;                    // Hide window (no taskbar flash, no destroy)
     public const int SW_RESTORE = 9;                 // Restore window from maximized/minimized
     public const int SW_MAXIMIZE = 3;                // Maximize window
-    public const int SW_SHOWNA = 8;                  // Show window in its current state, without activating it
     public const uint SWP_NOZORDER = 0x0004;         // Don't change Z-order when repositioning
     public const uint SWP_NOACTIVATE = 0x0010;       // Don't activate window when repositioning
     public const uint SWP_NOSIZE = 0x0001;           // Keep the window's current size
@@ -27,6 +25,10 @@ internal static class NativeMethods
     // Window style constants
     public const int GWL_EXSTYLE = -20;              // Extended window style index
     public const uint WS_EX_TOOLWINDOW = 0x00000080; // Tool window style (skip taskbar)
+    public const uint WS_EX_LAYERED = 0x00080000;    // Window is composited with an alpha value
+    public const uint LWA_ALPHA = 0x00000002;        // SetLayeredWindowAttributes: use the alpha argument
+    public const byte AlphaTransparent = 0;          // Fully see-through
+    public const byte AlphaOpaque = 255;             // Fully drawn
 
     // DPI query constants
     public const uint MONITOR_DEFAULTTONEAREST = 2;
@@ -86,6 +88,8 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] public static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll", SetLastError = true)] public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    [DllImport("user32.dll", SetLastError = true)] public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
     // lpWindowName is genuinely optional in the Win32 API (null matches any title for the given class).
     [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr FindWindow(string lpClassName, string? lpWindowName);
     [DllImport("user32.dll")][return: MarshalAs(UnmanagedType.Bool)] public static extern bool IsWindowVisible(IntPtr hWnd);

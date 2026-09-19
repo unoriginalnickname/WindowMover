@@ -52,11 +52,10 @@ internal static class DpiCorrectionScheduler
         public required System.Windows.Forms.Timer DebounceTimer;
         public required Rectangle FallbackBounds;
         public required DateTime Deadline;
-        // Whether WindowMoveActions hid this window for the duration of the correction, and
-        // therefore whether revealing it also has to put it back in front - hiding the
-        // foreground window hands the foreground to whatever was behind it, and SW_SHOWNA
-        // deliberately doesn't take it back.
-        public required bool BringToFrontOnReveal;
+        // Whether WindowMoveActions made this window transparent for the duration of the
+        // correction, and therefore whether this has to undo that - and put the window back
+        // in front, since the move deferred that until the window could actually be seen.
+        public required bool HiddenForCorrection;
     }
 
     // Keyed by hwnd, not a flat list: confirmed bug (ISSUES.md #3) - moving the same window
@@ -117,7 +116,7 @@ internal static class DpiCorrectionScheduler
         DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: resolved pending correction early to fallback={pending.FallbackBounds} before a new move");
     }
 
-    public static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds, bool bringToFrontOnReveal)
+    public static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds, bool hiddenForCorrection)
     {
         // Any prior pending correction for this window was already resolved at the top of
         // MoveWindowToScreen, before this move's own bounds were even calculated.
@@ -128,7 +127,7 @@ internal static class DpiCorrectionScheduler
             DebounceTimer = null!,
             FallbackBounds = fallbackBounds,
             Deadline = DateTime.UtcNow.AddMilliseconds(MaxTotalCorrectionWindowMs),
-            BringToFrontOnReveal = bringToFrontOnReveal
+            HiddenForCorrection = hiddenForCorrection
         };
         pending.DebounceTimer = StartDebounceTimer(hwnd);
         pendingDpiCorrections[hwnd] = pending;
@@ -207,19 +206,20 @@ internal static class DpiCorrectionScheduler
 
     // The single choke point every correction lifecycle ends through - settled correctly, hit
     // the deadline, abandoned for a manual resize, or superseded by a new move - so it's also
-    // the one safe place to un-hide the window WindowMoveActions hid before starting: whatever
-    // ended the correction, the window is guaranteed to come back. SW_SHOWNA on an
-    // already-visible window (the common case that was never hidden) is a harmless no-op.
+    // the one safe place to undo the transparency WindowMoveActions applied before starting:
+    // whatever ended the correction, the window is guaranteed to come back. Nothing is done
+    // to a window this app never hid; it is already exactly as the user left it, and both
+    // revealing and raising it would be changes nobody asked for.
     private static void RemovePending(IntPtr hwnd, PendingCorrection pending)
     {
         pending.DebounceTimer.Stop();
         pending.DebounceTimer.Dispose();
         pendingDpiCorrections.Remove(hwnd);
         if (pendingDpiCorrections.Count == 0) UninstallLocationChangeWatcher();
-        ShowWindow(hwnd, SW_SHOWNA);
-        // Only for a window this app actually hid: anything else here is already wherever the
-        // user left it, and yanking it forward would be a change nobody asked for.
-        if (pending.BringToFrontOnReveal) WindowMoveActions.BringToFront(hwnd);
+
+        if (!pending.HiddenForCorrection) return;
+        WindowMoveActions.RevealFromTransparency(hwnd);
+        WindowMoveActions.BringToFront(hwnd);
     }
 
     private static void EnsureLocationChangeWatcherInstalled()

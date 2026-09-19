@@ -25,6 +25,13 @@ internal sealed class MoveHost : IDisposable
     public void MoveToNextScreen(IntPtr hwnd) =>
         loop.Invoke(() => WindowMoveActions.MoveWindowToNextScreen(hwnd));
 
+    // Exposed for test setup, not because a test is asserting on it directly: a test process
+    // is a background process, so simply showing a window does not give it the foreground -
+    // Windows' foreground lock refuses that exactly as it refuses the app. Putting a window
+    // in front therefore takes the same work the app does, which is what this is.
+    public void BringToFront(IntPtr hwnd) =>
+        loop.Invoke(() => WindowMoveActions.BringToFront(hwnd));
+
     public void Dispose()
     {
         // On the loop thread, because that is where its timers were created - the same

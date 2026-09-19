@@ -13,6 +13,11 @@ internal static class LiveTestEnvironment
     private const int DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4;
 
     [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr context);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromRect(ref RECT rect, uint flags);
+    [DllImport("Shcore.dll")] private static extern int GetDpiForMonitor(IntPtr monitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
 
     // The app sets PerMonitorV2 before it creates any window, and every coordinate it works
     // in is therefore a real physical pixel. A test process that skipped this would be given
@@ -29,7 +34,30 @@ internal static class LiveTestEnvironment
     // A monitor other than the given one, for "move it somewhere else" - null when the
     // machine has only one, which is what LiveFact skips on.
     public static Screen? OtherMonitorThan(Screen screen) =>
-        Array.Find(Screen.AllScreens, s => !s.Bounds.Equals(screen.Bounds));
+        Array.Find(Screen.AllScreens, s => s.DeviceName != screen.DeviceName);
+
+    // A monitor at a different scaling than the given one. Only a move that crosses a real
+    // DPI boundary triggers the app's correction pass, and only that pass hides the window -
+    // so on a machine where every monitor runs at the same scale there is nothing to observe,
+    // and the tests that need one say so by skipping rather than passing vacuously.
+    public static Screen? MonitorAtDifferentDpiThan(Screen screen)
+    {
+        if (!TryGetDpi(screen, out uint dpi)) return null;
+        return Array.Find(Screen.AllScreens,
+            s => s.DeviceName != screen.DeviceName && TryGetDpi(s, out uint other) && other != dpi);
+    }
+
+    private static bool TryGetDpi(Screen screen, out uint dpi)
+    {
+        var rect = new RECT { Left = screen.Bounds.Left, Top = screen.Bounds.Top, Right = screen.Bounds.Right, Bottom = screen.Bounds.Bottom };
+        IntPtr monitor = MonitorFromRect(ref rect, MONITOR_DEFAULTTONEAREST);
+        if (GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, out dpi, out _) == 0) return true;
+        dpi = 0;
+        return false;
+    }
+
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+    private const int MDT_EFFECTIVE_DPI = 0;
 }
 
 // Marks a test that needs real windows on real monitors. Skipped rather than failed on a
@@ -40,6 +68,18 @@ public sealed class LiveFactAttribute : FactAttribute
     public LiveFactAttribute()
     {
         if (Screen.AllScreens.Length < 2) Skip = "Needs at least two monitors";
+    }
+}
+
+// Marks a test that needs two monitors at different scaling, so that a move between them
+// crosses a real DPI boundary and puts the app through its correction pass.
+public sealed class DpiBoundaryFactAttribute : FactAttribute
+{
+    public DpiBoundaryFactAttribute()
+    {
+        if (Screen.AllScreens.Length < 2) Skip = "Needs at least two monitors";
+        else if (Screen.PrimaryScreen is null || LiveTestEnvironment.MonitorAtDifferentDpiThan(Screen.PrimaryScreen) is null)
+            Skip = "Needs two monitors at different display scaling";
     }
 }
 

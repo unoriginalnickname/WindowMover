@@ -19,6 +19,11 @@ public class WindowMoveLiveTests
 {
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
+
+    private const int GWL_EXSTYLE = -20;
+    private const uint WS_EX_LAYERED = 0x00080000;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT { public int Left, Top, Right, Bottom; }
@@ -101,9 +106,12 @@ public class WindowMoveLiveTests
         using var mover = TestWindow.Restored(Source);
         using var occupant = TestWindow.Maximized(Target);
 
-        // Without this the test can pass for the wrong reason: if the occupant never took the
-        // foreground, the window being moved may hold it already and the assertion below is
-        // satisfied by a move that did nothing about Z-order at all.
+        // Showing a window from a background process does not make it the foreground window -
+        // the foreground lock refuses that. So the occupant is put in front the same way the
+        // app puts a moved window in front, and the test insists it worked: without a window
+        // genuinely in front, the assertion below could be satisfied by a move that did
+        // nothing about Z-order at all.
+        host.BringToFront(occupant.Handle);
         Assert.True(WaitForForeground(occupant.Handle, TimeSpan.FromSeconds(3)) == occupant.Handle,
             "The occupying window never took the foreground, so there was nothing to end up in front of");
 
@@ -112,6 +120,38 @@ public class WindowMoveLiveTests
         IntPtr front = WaitForForeground(mover.Handle, TimeSpan.FromSeconds(6));
         Assert.True(front == mover.Handle,
             $"Moved window {mover.Handle} never reached the foreground - {front} is in front of it");
+    }
+
+    // Moving across a DPI boundary puts the window through the correction pass, during which
+    // the app hides it. It must do that without the window ever stopping being visible as far
+    // as Windows is concerned: the shell drops a window's taskbar button the moment it does,
+    // and hands it back afterwards wherever it likes. That is what ShowWindow(SW_HIDE) did
+    // here, and it is why the hide is a transparency now.
+    [DpiBoundaryFact]
+    public void A_window_hidden_during_correction_never_leaves_the_taskbar()
+    {
+        using var host = new MoveHost();
+        Screen target = LiveTestEnvironment.MonitorAtDifferentDpiThan(Source)!;
+        using var window = TestWindow.Restored(Source);
+        AssertStartsOn(Source, window.Handle);
+
+        host.MoveToScreen(window.Handle, target);
+
+        // Watch across the whole correction: it ends on its own, but never later than the
+        // scheduler's hard deadline.
+        bool everHidden = false;
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(6);
+        while (DateTime.UtcNow < deadline)
+        {
+            Assert.True(IsWindowVisible(window.Handle),
+                "Window stopped being visible to Windows during the correction - the shell drops its taskbar button when that happens");
+            everHidden |= (GetWindowLong(window.Handle, GWL_EXSTYLE) & WS_EX_LAYERED) != 0;
+            Thread.Sleep(25);
+        }
+
+        Assert.True(everHidden, "The window was never actually hidden, so this proved nothing about how it is hidden");
+        Assert.True((GetWindowLong(window.Handle, GWL_EXSTYLE) & WS_EX_LAYERED) == 0,
+            "Window was left layered after the correction finished - this app added that style and has to take it back off");
     }
 
     private static void AssertStartsOn(Screen expected, IntPtr hwnd)

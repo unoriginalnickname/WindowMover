@@ -61,10 +61,11 @@ Run `WindowMover.exe`. It appears in the system tray. Right-click the tray icon 
 - **Hide window during monitor-crossing resize** — on by default. Some apps
   briefly resize themselves wrong right after a monitor-crossing move before
   WindowMover corrects them; this hides the window for that moment instead of
-  showing the wrong size. Trade-off: hiding is a real visibility change, and
-  at least one app (Chrome, for YouTube's spacebar-to-pause) reacts to it by
-  dropping its own keyboard focus, even though general typing is unaffected.
-  Turn this off if that bothers you.
+  showing the wrong size. It is hidden by making it fully transparent, not by
+  `ShowWindow(SW_HIDE)`: as far as Windows is concerned the window never stops
+  being visible, so it keeps its taskbar button, its place in the Z-order and
+  its focus. Turn it off if you would rather this app never touched how your
+  windows are drawn and took the brief flash instead.
 - **About** — controls and current settings
 - **Exit**
 

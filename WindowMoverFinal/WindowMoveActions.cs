@@ -127,25 +127,27 @@ internal static class WindowMoveActions
             // rounds that takes - see RemovePending, the single place that un-hides it, so it
             // can't stay hidden past whatever ends the correction, including the hard deadline).
             //
-            // Known tradeoff: hiding is a real visibility-state change, and Chrome fires
-            // visibilitychange to the page when its window is hidden - confirmed live to
-            // interrupt YouTube's spacebar-to-pause on the video player immediately after a
-            // move (general keyboard/typing focus is unaffected; it's specifically the
-            // player's own key-listener state). HideDuringDpiCorrection is the tray-menu
-            // escape hatch for that - default on for the cleaner visual result, off to keep
-            // the window visible (and accept the flash) instead.
+            // Hidden by making the window fully transparent, NOT by ShowWindow(SW_HIDE),
+            // which this used to do. SW_HIDE stops the window being visible as far as Windows
+            // is concerned, and the shell drops its taskbar button the moment that happens -
+            // so every corrected move flashed the taskbar and could hand the button back in a
+            // different position. Transparency leaves IsWindowVisible true throughout
+            // (measured), so the shell never notices anything, and it should also avoid the
+            // backgrounding signal SW_HIDE sent to Chrome - confirmed live back then to
+            // interrupt YouTube's spacebar-to-pause right after a move. HideDuringDpiCorrection
+            // remains the tray-menu escape hatch: default on for the cleaner visual result,
+            // off to leave the window untouched and accept the flash.
             // Still set the correct size immediately rather than waiting to see if it gets
             // overridden: most apps here never get overridden at all (VLC, snapped windows,
             // anything not per-monitor-DPI-aware) - waiting would leave those stuck wrong
             // forever. The few that do get overridden are caught and corrected reactively
             // by DpiCorrectionScheduler below instead.
-            bool hidden = HideDuringDpiCorrection;
-            if (hidden) ShowWindow(hwnd, SW_HIDE);
+            bool hidden = HideDuringDpiCorrection && TryHideByTransparency(hwnd);
             ReportMoveOutcome(hwnd, SetWindowPos(hwnd, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, SWP_NOZORDER | SWP_NOACTIVATE), $"SetWindowPos to {bounds}");
-            // A hidden window can't be raised or focused, and it is revealed later, once the
-            // correction ends - so the scheduler does the bring-to-front at that point
-            // instead, from the single place that un-hides it.
-            DpiCorrectionScheduler.ScheduleDpiCompensationCheck(hwnd, bounds, bringToFrontOnReveal: hidden);
+            // While it is transparent there is nothing to see, so raising it would be raising
+            // an invisible window - the scheduler does the bring-to-front when it reveals it,
+            // from the single place that undoes the transparency.
+            DpiCorrectionScheduler.ScheduleDpiCompensationCheck(hwnd, bounds, hiddenForCorrection: hidden);
             if (!hidden) BringToFrontAfterClickLands(hwnd);
         }
         else
@@ -263,6 +265,48 @@ internal static class WindowMoveActions
         }
 
         MoveWindowToScreen(hwnd, screens[next]);
+    }
+
+    // Makes a window invisible without telling Windows it is hidden: a fully transparent
+    // layered window still counts as visible, so it keeps its taskbar button, its Z-order and
+    // its focus, and the shell never sees anything happen. Returns whether it worked - the
+    // caller must not assume the window is hidden if it did not.
+    //
+    // Refused for a window that is already layered. Such a window is managing its own
+    // transparency (per-pixel alpha, a fade, a custom shape), and there is no way to set an
+    // alpha here and hand back whatever it had: the old value is not readable in any form
+    // this could restore. Those windows keep the visible flash instead, which is a far
+    // smaller harm than leaving an app's own transparency permanently altered.
+    private static bool TryHideByTransparency(IntPtr hwnd)
+    {
+        uint style = GetWindowLong(hwnd, GWL_EXSTYLE);
+        if ((style & WS_EX_LAYERED) != 0) return false;
+
+        if (SetWindowLong(hwnd, GWL_EXSTYLE, (int)(style | WS_EX_LAYERED)) == 0)
+        {
+            DebugLog.Write($"Hide [{DebugLog.DescribeWindowProcess(hwnd)}]: could not add WS_EX_LAYERED, win32 error {Marshal.GetLastWin32Error()}");
+            return false;
+        }
+
+        if (SetLayeredWindowAttributes(hwnd, 0, AlphaTransparent, LWA_ALPHA)) return true;
+
+        // Half-applied is worse than not applied: the style is on but the window is still
+        // opaque, so put it back rather than leave a window layered for no reason.
+        DebugLog.Write($"Hide [{DebugLog.DescribeWindowProcess(hwnd)}]: could not set alpha, win32 error {Marshal.GetLastWin32Error()}");
+        SetWindowLong(hwnd, GWL_EXSTYLE, (int)style);
+        return false;
+    }
+
+    // Undoes TryHideByTransparency: opaque again, and WS_EX_LAYERED taken back off, since
+    // this app added it and a window left layered composites differently from one that never
+    // was. Only ever called for a window TryHideByTransparency returned true for.
+    public static void RevealFromTransparency(IntPtr hwnd)
+    {
+        if (!IsWindow(hwnd)) return;
+
+        SetLayeredWindowAttributes(hwnd, 0, AlphaOpaque, LWA_ALPHA);
+        uint style = GetWindowLong(hwnd, GWL_EXSTYLE);
+        SetWindowLong(hwnd, GWL_EXSTYLE, (int)(style & ~WS_EX_LAYERED));
     }
 
     // A move that silently does nothing looks, from the outside, exactly like a gesture that

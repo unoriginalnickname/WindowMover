@@ -15,11 +15,15 @@ internal static class TrayApp
 
         // Hides a window during the brief window where a self-resizing app might fight the
         // size WindowMover just set, instead of showing that fight - see WindowMoveActions.
-        // HideDuringDpiCorrection. Label states the tradeoff directly since it's not obvious:
-        // confirmed to interrupt YouTube's spacebar-to-pause (Chrome treats hiding as
-        // backgrounding the page), even though general keyboard focus is unaffected.
+        // HideDuringDpiCorrection. The label no longer warns about page focus: that warning
+        // described ShowWindow(SW_HIDE), which told Windows the window was hidden - Chrome
+        // read that as backgrounding the page (confirmed at the time against YouTube's
+        // spacebar-to-pause) and the shell dropped the taskbar button for as long as it
+        // lasted. The hide is a transparency now and changes no window state at all, so
+        // neither of those should happen; the toggle stays for anyone who would rather this
+        // app never touched their windows' appearance and took the flash instead.
         var hideDuringResizeItem = new ToolStripMenuItem(
-            "Hide window during monitor-crossing resize (can affect page focus, e.g. YouTube spacebar)",
+            "Hide window during monitor-crossing resize",
             null, (s, e) =>
             {
                 var item = (ToolStripMenuItem)s!;

@@ -11,6 +11,44 @@ No open issues.
 
 # Past issues (resolved)
 
+## #5 - Hiding a window for a correction took its taskbar button with it, 2026-09-19
+
+`ShowWindow(hwnd, SW_HIDE)` was how a window was hidden for the duration of a
+DPI correction. A hidden window is not visible as far as Windows is concerned,
+and the shell drops a window's taskbar button the moment that becomes true - so
+every corrected move flashed the taskbar, and the button could come back in a
+different position. The constant's own comment claimed "no taskbar flash",
+which was simply wrong.
+
+Two alternatives were measured against a real window on the second monitor:
+
+| Technique | Cross-process | Window invisible | Stays in taskbar |
+|---|---|---|---|
+| `DwmSetWindowAttribute(DWMWA_CLOAK)` | **no** - `E_ACCESSDENIED` (0x80070005) | - | - |
+| `WS_EX_LAYERED` + `SetLayeredWindowAttributes(alpha 0)` | yes | yes | yes |
+
+The layered measurement, from a screen capture of the window's own rectangle
+rather than by eye: pixel difference of 117.65 against the same region while
+transparent (it really vanished), 0 after restoring (it came back unchanged),
+and `IsWindowVisible` stayed true throughout - which is the property the shell
+keys the taskbar button off.
+
+So the hide is now transparency. It is refused for a window that is already
+layered: such a window manages its own transparency, and the alpha it had
+cannot be read back in a form this could restore, so those windows keep the
+visible flash rather than risk being left permanently altered.
+
+Expected but **not** verified: the old tradeoff behind the tray toggle's
+warning - Chrome treating `SW_HIDE` as backgrounding the page, which
+interrupted YouTube's spacebar-to-pause - should be gone with the mechanism
+that caused it, since no window state changes any more. Worth confirming
+against YouTube before treating it as settled.
+
+`A_window_hidden_during_correction_never_leaves_the_taskbar` in
+`WindowMover.LiveTests` pins the property down: across the whole correction the
+window must never stop being visible to Windows, must actually have been
+hidden, and must not be left layered afterwards.
+
 ## #4 - A maximized window would not move at all (VS Code), 2026-09-19
 
 Reported as "it's bugged, the window just isn't moving", against VS Code.
