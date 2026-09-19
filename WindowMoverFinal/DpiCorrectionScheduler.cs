@@ -52,10 +52,9 @@ internal static class DpiCorrectionScheduler
         public required System.Windows.Forms.Timer DebounceTimer;
         public required Rectangle FallbackBounds;
         public required DateTime Deadline;
-        // Whether WindowMoveActions made this window transparent for the duration of the
-        // correction, and therefore whether this has to undo that - and put the window back
-        // in front, since the move deferred that until the window could actually be seen.
-        public required bool HiddenForCorrection;
+        // How to undo the transparency WindowMoveActions applied for the duration of the
+        // correction, or null when it did not hide this window at all.
+        public required WindowMoveActions.TransparencyRestore? HiddenForCorrection;
     }
 
     // Keyed by hwnd, not a flat list: confirmed bug (ISSUES.md #3) - moving the same window
@@ -116,7 +115,7 @@ internal static class DpiCorrectionScheduler
         DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: resolved pending correction early to fallback={pending.FallbackBounds} before a new move");
     }
 
-    public static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds, bool hiddenForCorrection)
+    public static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds, WindowMoveActions.TransparencyRestore? hiddenForCorrection)
     {
         // Any prior pending correction for this window was already resolved at the top of
         // MoveWindowToScreen, before this move's own bounds were even calculated.
@@ -217,9 +216,8 @@ internal static class DpiCorrectionScheduler
         pendingDpiCorrections.Remove(hwnd);
         if (pendingDpiCorrections.Count == 0) UninstallLocationChangeWatcher();
 
-        if (!pending.HiddenForCorrection) return;
-        WindowMoveActions.RevealFromTransparency(hwnd);
-        WindowMoveActions.BringToFront(hwnd);
+        if (pending.HiddenForCorrection is not { } restore) return;
+        WindowMoveActions.RevealFromTransparency(hwnd, restore);
     }
 
     private static void EnsureLocationChangeWatcherInstalled()

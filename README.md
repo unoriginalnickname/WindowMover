@@ -66,6 +66,8 @@ Run `WindowMover.exe`. It appears in the system tray. Right-click the tray icon 
   being visible, so it keeps its taskbar button, its place in the Z-order and
   its focus. Turn it off if you would rather this app never touched how your
   windows are drawn and took the brief flash instead.
+- **Show where the window landed** — on by default. The outline-and-number
+  flash described above. Turn it off for a completely silent move.
 - **About** — controls and current settings
 - **Exit**
 
@@ -81,11 +83,16 @@ working area and maximized again there. Landing on the working area means the
 intermediate frame is already close to the final size, so the move reads as a
 jump between monitors rather than a shrink, a jump and a grow.
 
-A moved window is brought to the front and focused once it lands, so it can't
-arrive buried behind whatever was already on that monitor. That happens a beat
-after the click rather than immediately: the middle click hasn't been delivered
-yet when the hook runs, and if it lands on a background window it activates that
-window - putting it straight back over the one just moved.
+When a window lands, WindowMover draws a brief outline at its new position with
+the monitor's number in it, fading out over about half a second. That is how a
+move announces itself.
+
+It does not bring the moved window to the front, because Windows will not
+reliably allow it: a background process is refused the foreground while you are
+using another app, and is refused raising a window past the active one as well.
+That was built, measured and removed - see ISSUES.md #6. The indicator is this
+app's own window, so it is allowed to draw on top of anything, and it takes no
+focus, swallows no clicks and changes nothing about your windows.
 
 Some apps resize themselves the moment they detect a DPI change between
 differently-scaled monitors, overriding the size WindowMover just set.

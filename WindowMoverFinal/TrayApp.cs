@@ -34,6 +34,22 @@ internal static class TrayApp
         { Checked = WindowMoveActions.HideDuringDpiCorrection };
         trayMenu.Items.Add(hideDuringResizeItem);
 
+        // The signal that a move happened. A moved window cannot be relied on to announce
+        // itself by coming to the front - Windows refuses a background process that, and
+        // refuses raising past the foreground window too (ISSUES.md #6) - so this app draws
+        // where the window went instead, on its own overlay, touching nothing of the user's.
+        var showIndicatorItem = new ToolStripMenuItem(
+            "Show where the window landed",
+            null, (s, e) =>
+            {
+                var item = (ToolStripMenuItem)s!;
+                MoveIndicator.Enabled = !MoveIndicator.Enabled;
+                item.Checked = MoveIndicator.Enabled;
+                Settings.SaveShowMoveIndicator(MoveIndicator.Enabled);
+            })
+        { Checked = MoveIndicator.Enabled };
+        trayMenu.Items.Add(showIndicatorItem);
+
         trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("About", null, (s, e) => MessageBox.Show(
             "Window Mover\n\n" +

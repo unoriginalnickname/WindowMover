@@ -11,6 +11,45 @@ No open issues.
 
 # Past issues (resolved)
 
+## #6 - A moved window cannot be made to come to the front, 2026-09-19
+
+Moving a window onto a monitor that already had windows on it could leave it
+behind them, which looks exactly like a move that never happened. The obvious
+answer - bring the moved window to the front - was built, and then measured,
+and Windows does not allow it:
+
+- **Activation is refused.** A process that does not hold the foreground cannot
+  take it while the user is interacting with another app. The documented escape
+  hatch, attaching to the foreground thread's input queue with
+  `AttachThreadInput`, was tried and also refused. The app's own log, recorded
+  while the machine was in use: `activated via input attach=False`, every
+  attempt, without exception.
+- **Raising is refused past the foreground window.** A raise is normally free of
+  the foreground lock, and it works against every other window - but not past
+  the active one. Measured in the live suite: `SetWindowPos(HWND_TOP)` on the
+  moved window left it one position *below* the window already there, and
+  raising it again from the test process made no difference either - while
+  *lowering* the other window worked immediately. Neither window was topmost and
+  neither owned the other, so ordering was not the constraint; permission was.
+
+The feature was removed rather than left as something that works when nobody is
+at the keyboard. In its place the app now draws where the window went: a brief
+outline at the window's new bounds with the monitor's number in it, fading out
+over about half a second (`MoveIndicator`).
+
+That works precisely because it is this app's own window. Always-on-top is
+allowed for one's own window, so it shows above whatever is in the way; it is
+`WS_EX_NOACTIVATE` so it never takes focus, `WS_EX_TRANSPARENT` so clicks pass
+straight through it, and `WS_EX_TOOLWINDOW` so it stays out of the taskbar and
+Alt-Tab - which also means `WindowMoveFilter` refuses to move it, so the app can
+never be asked to throw its own indicator across the desk. A live test asserts
+that last part rather than trusting it.
+
+One real finding survives from the removed code and is worth keeping: holding
+the foreground does **not** mean being the top window. The old bring-to-front
+skipped its raise whenever the window already had focus, on that assumption, and
+a window can sit above the active one.
+
 ## #5 - Hiding a window for a correction took its taskbar button with it, 2026-09-19
 
 `ShowWindow(hwnd, SW_HIDE)` was how a window was hidden for the duration of a

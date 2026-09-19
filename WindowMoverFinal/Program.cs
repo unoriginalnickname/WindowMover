@@ -34,6 +34,8 @@ class Program
         // Load persisted tray-menu toggles before TrayApp reads them to set initial Checked state
         WindowMoveActions.HideDuringDpiCorrection = Settings.LoadHideDuringDpiCorrection();
 
+        MoveIndicator.Enabled = Settings.LoadShowMoveIndicator();
+
         // Install low-level mouse hook to intercept all mouse events
         MouseHook.Install();
 
@@ -58,6 +60,7 @@ class Program
         Application.Run();
 
         // Cleanup on exit
+        MoveIndicator.Hide();
         MouseHook.Uninstall();
         DpiCorrectionScheduler.UninstallManualResizeWatcher();
         DpiCorrectionScheduler.Shutdown();

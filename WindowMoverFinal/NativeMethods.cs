@@ -18,9 +18,6 @@ internal static class NativeMethods
     public const int SW_MAXIMIZE = 3;                // Maximize window
     public const uint SWP_NOZORDER = 0x0004;         // Don't change Z-order when repositioning
     public const uint SWP_NOACTIVATE = 0x0010;       // Don't activate window when repositioning
-    public const uint SWP_NOSIZE = 0x0001;           // Keep the window's current size
-    public const uint SWP_NOMOVE = 0x0002;           // Keep the window's current position
-    public static readonly IntPtr HWND_TOP = IntPtr.Zero; // Top of the non-topmost Z-order
 
     // Window style constants
     public const int GWL_EXSTYLE = -20;              // Extended window style index
@@ -75,11 +72,6 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool UnhookWindowsHookEx(IntPtr hhk);
     [DllImport("user32.dll")] public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-    // Momentarily joins two threads' input queues - the documented way out of the foreground
-    // lock that otherwise refuses SetForegroundWindow from a background process like this one.
-    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
-    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
     // SetLastError: a move that "just doesn't happen" shows up here as a plain false return -
     // only the error code says whether Windows refused it (e.g. UIPI on a higher-integrity
@@ -90,6 +82,9 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
     [DllImport("user32.dll", SetLastError = true)] public static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
     [DllImport("user32.dll", SetLastError = true)] public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
+    // Reads back what SetLayeredWindowAttributes set. Fails for a window drawing itself with
+    // per-pixel alpha (UpdateLayeredWindow) - there is no single alpha value to report.
+    [DllImport("user32.dll", SetLastError = true)] public static extern bool GetLayeredWindowAttributes(IntPtr hWnd, out uint pcrKey, out byte pbAlpha, out uint pdwFlags);
     // lpWindowName is genuinely optional in the Win32 API (null matches any title for the given class).
     [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr FindWindow(string lpClassName, string? lpWindowName);
     [DllImport("user32.dll")][return: MarshalAs(UnmanagedType.Bool)] public static extern bool IsWindowVisible(IntPtr hWnd);

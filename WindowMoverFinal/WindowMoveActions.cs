@@ -20,14 +20,6 @@ internal static class WindowMoveActions
     private const int WindowWidth = 800;
     private const int WindowHeight = 600;
 
-    // How long to wait after a move before forcing the window to the front. This can't be
-    // done inline: the middle click that triggers the move has NOT been delivered yet when
-    // the hook runs - it goes out to whatever sits under the cursor on the target monitor
-    // straight afterwards, and clicking a background window activates it, dropping the
-    // window we just moved right back behind it. Waiting a beat on the message loop lets
-    // that click land first, so ours is the last word on the Z-order.
-    private const int BringToFrontDelayMs = 60;
-
     // Progman and Shell_TrayWnd are singleton top-level windows that exist for the lifetime
     // of the Explorer shell - looked up once and cached rather than on every move gesture,
     // since IsSafeMovableWindow runs twice per move (capture, then move) and every uncached
@@ -117,6 +109,11 @@ internal static class WindowMoveActions
 
         var (bounds, watchForSelfResize) = DetermineWindowBounds(hwnd, target);
 
+        // Shown for the bounds the window is being given, before any DPI correction settles:
+        // the point is to say "it went there, on that monitor" the instant the gesture is
+        // made, not to trace the final pixel-exact rectangle a moment later.
+        MoveIndicator.Show(target, bounds);
+
         if (watchForSelfResize)
         {
             // Setting the correct size and then having a self-resizing app fight it a moment
@@ -142,20 +139,15 @@ internal static class WindowMoveActions
             // anything not per-monitor-DPI-aware) - waiting would leave those stuck wrong
             // forever. The few that do get overridden are caught and corrected reactively
             // by DpiCorrectionScheduler below instead.
-            bool hidden = HideDuringDpiCorrection && TryHideByTransparency(hwnd);
+            TransparencyRestore? hidden = HideDuringDpiCorrection ? TryHideByTransparency(hwnd) : null;
             ReportMoveOutcome(hwnd, SetWindowPos(hwnd, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, SWP_NOZORDER | SWP_NOACTIVATE), $"SetWindowPos to {bounds}");
-            // While it is transparent there is nothing to see, so raising it would be raising
-            // an invisible window - the scheduler does the bring-to-front when it reveals it,
-            // from the single place that undoes the transparency.
             DpiCorrectionScheduler.ScheduleDpiCompensationCheck(hwnd, bounds, hiddenForCorrection: hidden);
-            if (!hidden) BringToFrontAfterClickLands(hwnd);
         }
         else
         {
             ReportMoveOutcome(hwnd, SetWindowPos(hwnd, IntPtr.Zero,
                 bounds.X, bounds.Y, bounds.Width, bounds.Height,
                 SWP_NOZORDER | SWP_NOACTIVATE), $"SetWindowPos to {bounds}");
-            BringToFrontAfterClickLands(hwnd);
         }
     }
 
@@ -184,7 +176,7 @@ internal static class WindowMoveActions
             landing.X, landing.Y, landing.Width, landing.Height,
             SWP_NOZORDER | SWP_NOACTIVATE), $"SetWindowPos to {landing} (maximized move)");
         ShowWindow(hwnd, SW_MAXIMIZE);
-        BringToFrontAfterClickLands(hwnd);
+        MoveIndicator.Show(target, landing);
     }
 
     // Where and what size a non-maximized window should become: it lands at the same
@@ -267,44 +259,72 @@ internal static class WindowMoveActions
         MoveWindowToScreen(hwnd, screens[next]);
     }
 
+    // Everything needed to put a window's appearance back exactly as it was found. Which of
+    // the two cases it is matters: a window this app made layered has to be un-layered again,
+    // while a window that was already layered has to keep the style and get its own alpha
+    // back, untouched.
+    internal readonly record struct TransparencyRestore(bool AppAddedLayeredStyle, uint ColorKey, byte Alpha, uint Flags);
+
     // Makes a window invisible without telling Windows it is hidden: a fully transparent
     // layered window still counts as visible, so it keeps its taskbar button, its Z-order and
-    // its focus, and the shell never sees anything happen. Returns whether it worked - the
-    // caller must not assume the window is hidden if it did not.
+    // its focus, and the shell never sees anything happen. Returns how to undo it, or null
+    // when the window could not be hidden - the caller must not assume it was.
     //
-    // Refused for a window that is already layered. Such a window is managing its own
-    // transparency (per-pixel alpha, a fade, a custom shape), and there is no way to set an
-    // alpha here and hand back whatever it had: the old value is not readable in any form
-    // this could restore. Those windows keep the visible flash instead, which is a far
-    // smaller harm than leaving an app's own transparency permanently altered.
-    private static bool TryHideByTransparency(IntPtr hwnd)
+    // A window that is already layered is not automatically refused. If its transparency came
+    // from SetLayeredWindowAttributes, the exact values can be read back and restored, so it
+    // is hidden like any other. Only per-pixel alpha (UpdateLayeredWindow) is refused: there
+    // is no single alpha to read, and setting one would replace the window's own compositing
+    // with a flat value this could never put back. Those windows keep the visible flash,
+    // which is a far smaller harm than leaving an app's appearance permanently altered.
+    private static TransparencyRestore? TryHideByTransparency(IntPtr hwnd)
     {
         uint style = GetWindowLong(hwnd, GWL_EXSTYLE);
-        if ((style & WS_EX_LAYERED) != 0) return false;
+        string process = DebugLog.DescribeWindowProcess(hwnd);
+
+        if ((style & WS_EX_LAYERED) != 0)
+        {
+            if (!GetLayeredWindowAttributes(hwnd, out uint key, out byte alpha, out uint flags))
+            {
+                DebugLog.Write($"Hide [{process}]: already layered with per-pixel alpha, leaving it alone");
+                return null;
+            }
+
+            if (!SetLayeredWindowAttributes(hwnd, key, AlphaTransparent, flags | LWA_ALPHA))
+            {
+                DebugLog.Write($"Hide [{process}]: could not set alpha on an already-layered window, win32 error {Marshal.GetLastWin32Error()}");
+                return null;
+            }
+
+            return new TransparencyRestore(AppAddedLayeredStyle: false, key, alpha, flags);
+        }
 
         if (SetWindowLong(hwnd, GWL_EXSTYLE, (int)(style | WS_EX_LAYERED)) == 0)
         {
-            DebugLog.Write($"Hide [{DebugLog.DescribeWindowProcess(hwnd)}]: could not add WS_EX_LAYERED, win32 error {Marshal.GetLastWin32Error()}");
-            return false;
+            DebugLog.Write($"Hide [{process}]: could not add WS_EX_LAYERED, win32 error {Marshal.GetLastWin32Error()}");
+            return null;
         }
 
-        if (SetLayeredWindowAttributes(hwnd, 0, AlphaTransparent, LWA_ALPHA)) return true;
+        if (SetLayeredWindowAttributes(hwnd, 0, AlphaTransparent, LWA_ALPHA))
+            return new TransparencyRestore(AppAddedLayeredStyle: true, 0, AlphaOpaque, LWA_ALPHA);
 
         // Half-applied is worse than not applied: the style is on but the window is still
         // opaque, so put it back rather than leave a window layered for no reason.
-        DebugLog.Write($"Hide [{DebugLog.DescribeWindowProcess(hwnd)}]: could not set alpha, win32 error {Marshal.GetLastWin32Error()}");
+        DebugLog.Write($"Hide [{process}]: could not set alpha, win32 error {Marshal.GetLastWin32Error()}");
         SetWindowLong(hwnd, GWL_EXSTYLE, (int)style);
-        return false;
+        return null;
     }
 
-    // Undoes TryHideByTransparency: opaque again, and WS_EX_LAYERED taken back off, since
-    // this app added it and a window left layered composites differently from one that never
-    // was. Only ever called for a window TryHideByTransparency returned true for.
-    public static void RevealFromTransparency(IntPtr hwnd)
+    // Undoes TryHideByTransparency, using what it reported at the time. A window this app made
+    // layered is put back opaque and un-layered, since a window left layered composites
+    // differently from one that never was; a window that was already layered gets its own
+    // colour key, alpha and flags back and keeps the style it came with.
+    public static void RevealFromTransparency(IntPtr hwnd, TransparencyRestore restore)
     {
         if (!IsWindow(hwnd)) return;
 
-        SetLayeredWindowAttributes(hwnd, 0, AlphaOpaque, LWA_ALPHA);
+        SetLayeredWindowAttributes(hwnd, restore.ColorKey, restore.Alpha, restore.Flags);
+        if (!restore.AppAddedLayeredStyle) return;
+
         uint style = GetWindowLong(hwnd, GWL_EXSTYLE);
         SetWindowLong(hwnd, GWL_EXSTYLE, (int)(style & ~WS_EX_LAYERED));
     }
@@ -319,69 +339,4 @@ internal static class WindowMoveActions
         DebugLog.Write($"Move FAILED [{DebugLog.DescribeWindowProcess(hwnd)}]: {what} returned false, win32 error {Marshal.GetLastWin32Error()}");
     }
 
-    // Defers BringToFront by one short beat - see BringToFrontDelayMs for why it can't just
-    // be called inline. A WinForms timer keeps this on the app's message-loop thread (the
-    // same thread the mouse hook runs on), so nothing here needs to be thread-safe.
-    private static void BringToFrontAfterClickLands(IntPtr hwnd)
-    {
-        var timer = new System.Windows.Forms.Timer { Interval = BringToFrontDelayMs };
-        timer.Tick += (s, e) =>
-        {
-            timer.Stop();
-            timer.Dispose();
-            BringToFront(hwnd);
-        };
-        timer.Start();
-    }
-
-    // Raises a window to the top of the Z-order and gives it focus. Moving a window onto a
-    // monitor that already has windows on it otherwise leaves it wherever it was in the
-    // Z-order - which, for a window that wasn't in front to begin with, means it lands
-    // behind them and looks like nothing happened.
-    //
-    // Windows' foreground lock normally refuses SetForegroundWindow from a background
-    // process like this one (it returns false and does nothing but flash the taskbar
-    // button). The documented exception is a thread whose input queue is attached to the
-    // current foreground thread's, so that's the fallback. The attach is released again
-    // immediately: while attached the two threads share an input queue, and staying that
-    // way any longer than the one call risks this app's input being held up by another
-    // app's stalled message loop.
-    public static void BringToFront(IntPtr hwnd)
-    {
-        if (!IsWindow(hwnd)) return;
-
-        IntPtr foreground = GetForegroundWindow();
-        if (foreground == hwnd) return; // already in front - touch nothing
-
-        string process = DebugLog.DescribeWindowProcess(hwnd);
-
-        // Z-order first, and on its own: this is not subject to the foreground lock, so even
-        // when activation below is refused the window is at least visible on top of the
-        // others rather than buried behind them.
-        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-
-        if (SetForegroundWindow(hwnd))
-        {
-            DebugLog.Write($"Bring to front [{process}]: activated directly");
-            return;
-        }
-
-        uint ourThread = GetCurrentThreadId();
-        uint foregroundThread = foreground == IntPtr.Zero ? 0 : GetWindowThreadProcessId(foreground, out _);
-        if (foregroundThread == 0 || foregroundThread == ourThread)
-        {
-            DebugLog.Write($"Bring to front [{process}]: refused, raised only (no other foreground thread to attach to)");
-            return;
-        }
-
-        if (!AttachThreadInput(ourThread, foregroundThread, true))
-        {
-            DebugLog.Write($"Bring to front [{process}]: refused, raised only (input attach failed)");
-            return;
-        }
-
-        bool activated = SetForegroundWindow(hwnd);
-        AttachThreadInput(ourThread, foregroundThread, false);
-        DebugLog.Write($"Bring to front [{process}]: activated via input attach={activated}");
-    }
 }

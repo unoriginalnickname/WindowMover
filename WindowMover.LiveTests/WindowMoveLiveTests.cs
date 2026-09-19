@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 using Xunit;
 
 namespace WindowMover.LiveTests;
@@ -21,9 +22,15 @@ public class WindowMoveLiveTests
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll")] private static extern bool GetLayeredWindowAttributes(IntPtr hWnd, out uint key, out byte alpha, out uint flags);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr param);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr param);
 
     private const int GWL_EXSTYLE = -20;
     private const uint WS_EX_LAYERED = 0x00080000;
+    private const uint WS_EX_TOOLWINDOW = 0x00000080;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT { public int Left, Top, Right, Bottom; }
@@ -96,30 +103,62 @@ public class WindowMoveLiveTests
             $"Window was still on {Source.DeviceName} after being cycled to the next monitor");
     }
 
-    // A window that lands behind what was already on the target monitor looks exactly like a
-    // window that never moved - which is why bringing it to the front is part of the move
-    // rather than a nicety.
+    // The indicator is how a move announces itself, so it has to appear - and it has to be
+    // the kind of window that changes nothing: it must never take the foreground away from
+    // whatever the user was using, and it must take itself down again rather than leaving an
+    // overlay parked on the desktop.
     [LiveFact]
-    public void A_moved_window_ends_up_in_front_of_what_was_already_there()
+    public void A_move_shows_an_indicator_that_never_steals_focus_and_cleans_itself_up()
     {
         using var host = new MoveHost();
-        using var mover = TestWindow.Restored(Source);
-        using var occupant = TestWindow.Maximized(Target);
+        using var window = TestWindow.Restored(Source);
+        AssertStartsOn(Source, window.Handle);
 
-        // Showing a window from a background process does not make it the foreground window -
-        // the foreground lock refuses that. So the occupant is put in front the same way the
-        // app puts a moved window in front, and the test insists it worked: without a window
-        // genuinely in front, the assertion below could be satisfied by a move that did
-        // nothing about Z-order at all.
-        host.BringToFront(occupant.Handle);
-        Assert.True(WaitForForeground(occupant.Handle, TimeSpan.FromSeconds(3)) == occupant.Handle,
-            "The occupying window never took the foreground, so there was nothing to end up in front of");
+        IntPtr foregroundBefore = GetForegroundWindow();
 
-        host.MoveToScreen(mover.Handle, Target);
+        host.MoveToScreen(window.Handle, Target);
 
-        IntPtr front = WaitForForeground(mover.Handle, TimeSpan.FromSeconds(6));
-        Assert.True(front == mover.Handle,
-            $"Moved window {mover.Handle} never reached the foreground - {front} is in front of it");
+        bool appeared = false;
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (DateTime.UtcNow < deadline && !appeared)
+        {
+            appeared = IndicatorWindows().Count > 0;
+            Assert.True(GetForegroundWindow() == foregroundBefore,
+                "The indicator took the foreground - it must never move focus away from what the user was doing");
+            Thread.Sleep(20);
+        }
+
+        Assert.True(appeared, "No indicator appeared for the move");
+
+        // It fades out on its own; nothing should be left behind a second later.
+        var goneBy = DateTime.UtcNow + TimeSpan.FromSeconds(4);
+        while (DateTime.UtcNow < goneBy && IndicatorWindows().Count > 0) Thread.Sleep(50);
+        Assert.Empty(IndicatorWindows());
+    }
+
+    // The overlay is a tool window, which is exactly what WindowMoveFilter refuses to move -
+    // so the app can never be asked to throw its own indicator across the desk.
+    [LiveFact]
+    public void The_indicator_is_a_window_this_app_would_refuse_to_move()
+    {
+        using var host = new MoveHost();
+        using var window = TestWindow.Restored(Source);
+
+        host.MoveToScreen(window.Handle, Target);
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        List<IntPtr> indicators = IndicatorWindows();
+        while (DateTime.UtcNow < deadline && indicators.Count == 0)
+        {
+            Thread.Sleep(20);
+            indicators = IndicatorWindows();
+        }
+
+        Assert.NotEmpty(indicators);
+        foreach (IntPtr indicator in indicators)
+        {
+            Assert.Equal(IntPtr.Zero, WindowMoveActions.WindowToCapture(indicator));
+        }
     }
 
     // Moving across a DPI boundary puts the window through the correction pass, during which
@@ -154,6 +193,33 @@ public class WindowMoveLiveTests
             "Window was left layered after the correction finished - this app added that style and has to take it back off");
     }
 
+    // Hiding is done by setting a window's alpha, which means an app that was already using
+    // alpha for its own purposes has to get exactly its own value back - not "opaque", and
+    // not left permanently see-through either.
+    [DpiBoundaryFact]
+    public void A_window_with_its_own_transparency_gets_it_back_after_a_move()
+    {
+        const byte OwnAlpha = 160;
+
+        using var host = new MoveHost();
+        Screen target = LiveTestEnvironment.MonitorAtDifferentDpiThan(Source)!;
+        using var window = TestWindow.Translucent(Source, OwnAlpha);
+
+        host.MoveToScreen(window.Handle, target);
+
+        // Poll rather than sleep: the correction ends when it ends, and the alpha is only
+        // back once it has.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(8);
+        while (DateTime.UtcNow < deadline && CurrentAlpha(window.Handle) != OwnAlpha) Thread.Sleep(100);
+
+        Assert.Equal(OwnAlpha, CurrentAlpha(window.Handle));
+        Assert.True((GetWindowLong(window.Handle, GWL_EXSTYLE) & WS_EX_LAYERED) != 0,
+            "The window's own WS_EX_LAYERED was stripped - this app did not add it and must not remove it");
+    }
+
+    private static byte CurrentAlpha(IntPtr hwnd) =>
+        GetLayeredWindowAttributes(hwnd, out _, out byte alpha, out _) ? alpha : (byte)255;
+
     private static void AssertStartsOn(Screen expected, IntPtr hwnd)
     {
         Screen actual = MonitorShowing(hwnd);
@@ -184,16 +250,25 @@ public class WindowMoveLiveTests
         return current;
     }
 
-    private static IntPtr WaitForForeground(IntPtr hwnd, TimeSpan timeout)
+    // The app's overlay windows, found by the class WinForms gives them plus this app's own
+    // process - there is no public handle to them, and a test that guessed by title would be
+    // fooled by anything else on the desktop wearing the same one.
+    private static List<IntPtr> IndicatorWindows()
     {
-        var deadline = DateTime.UtcNow + timeout;
-        IntPtr front = GetForegroundWindow();
-        while (DateTime.UtcNow < deadline && front != hwnd)
+        var found = new List<IntPtr>();
+        uint ourProcess = (uint)Environment.ProcessId;
+
+        EnumWindows((h, _) =>
         {
-            Thread.Sleep(150);
-            front = GetForegroundWindow();
-        }
-        return front;
+            GetWindowThreadProcessId(h, out uint pid);
+            if (pid != ourProcess) return true;
+            if ((GetWindowLong(h, GWL_EXSTYLE) & WS_EX_TOOLWINDOW) == 0) return true;
+            if (!IsWindowVisible(h)) return true;
+            found.Add(h);
+            return true;
+        }, IntPtr.Zero);
+
+        return found;
     }
 
     // Screen objects are rebuilt on every call, so two Screens for one monitor are never the

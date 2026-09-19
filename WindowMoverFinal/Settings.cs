@@ -7,6 +7,7 @@ internal static class Settings
 {
     private const string KeyPath = @"SOFTWARE\WindowMover";
     private const string HideDuringDpiCorrectionValue = "HideDuringDpiCorrection";
+    private const string ShowMoveIndicatorValue = "ShowMoveIndicator";
 
     public static bool LoadHideDuringDpiCorrection()
     {
@@ -25,6 +26,27 @@ internal static class Settings
         {
             using var key = Registry.CurrentUser.CreateSubKey(KeyPath);
             key?.SetValue(HideDuringDpiCorrectionValue, enabled ? 1 : 0, RegistryValueKind.DWord);
+        }
+        catch { }
+    }
+
+    public static bool LoadShowMoveIndicator()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(KeyPath, false);
+            var val = key?.GetValue(ShowMoveIndicatorValue);
+            return val is not int i || i != 0; // default on when unset
+        }
+        catch { return true; }
+    }
+
+    public static void SaveShowMoveIndicator(bool enabled)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(KeyPath);
+            key?.SetValue(ShowMoveIndicatorValue, enabled ? 1 : 0, RegistryValueKind.DWord);
         }
         catch { }
     }

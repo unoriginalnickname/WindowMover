@@ -14,6 +14,13 @@ internal sealed class TestWindow : IDisposable
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] private static extern bool IsZoomed(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern uint GetWindowLong(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    [DllImport("user32.dll")] private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
+
+    private const int GWL_EXSTYLE = -20;
+    private const uint WS_EX_LAYERED = 0x00080000;
+    private const uint LWA_ALPHA = 0x00000002;
 
     private readonly Thread thread;
     private readonly Form form;
@@ -54,6 +61,18 @@ internal sealed class TestWindow : IDisposable
         Rectangle work = monitor.WorkingArea;
         var bounds = new Rectangle(work.X + work.Width / 8, work.Y + work.Height / 8, work.Width / 2, work.Height / 2);
         return new TestWindow($"WindowMover live test {Guid.NewGuid():N}", bounds);
+    }
+
+    // A window that manages its own transparency, the way some apps do - the case where this
+    // app must hide it without destroying the appearance it came with.
+    public static TestWindow Translucent(Screen monitor, byte alpha)
+    {
+        var window = Restored(monitor);
+        uint style = GetWindowLong(window.Handle, GWL_EXSTYLE);
+        SetWindowLong(window.Handle, GWL_EXSTYLE, (int)(style | WS_EX_LAYERED));
+        SetLayeredWindowAttributes(window.Handle, 0, alpha, LWA_ALPHA);
+        Thread.Sleep(200);
+        return window;
     }
 
     // A window maximized on the given monitor - maximizing is done through Win32 rather than
