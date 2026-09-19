@@ -10,4 +10,11 @@
 	<ItemGroup>
 		<ProjectReference Include="..\WindowMover.Core\WindowMover.Core.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+		<!-- The live tests drive the real move code, which is internal to this app - there is
+		     no library to test it through, and making it public for the tests' sake would say
+		     it is an API for someone to use. -->
+		<InternalsVisibleTo Include="WindowMover.LiveTests" />
+	</ItemGroup>
 </Project>

@@ -2,4 +2,5 @@
   <Project Path="WindowMoverFinal/WindowMoverFinal.csproj" />
   <Project Path="WindowMover.Core/WindowMover.Core.csproj" />
   <Project Path="WindowMover.Tests/WindowMover.Tests.csproj" />
+  <Project Path="WindowMover.LiveTests/WindowMover.LiveTests.csproj" />
 </Solution>

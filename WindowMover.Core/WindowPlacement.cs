@@ -45,17 +45,6 @@ public static class WindowPlacement
         return new Rectangle(x, y, windowSize.Width, windowSize.Height);
     }
 
-    // SetWindowPlacement's rcNormalPosition is in "workspace coordinates", not the screen
-    // coordinates the rest of this app uses: it's offset by the primary monitor's own work
-    // area origin, which is (0,0) in the common case (taskbar on the bottom or right) and
-    // non-zero only when the taskbar sits on the primary monitor's top or left edge.
-    public static Rectangle ToWorkspaceCoordinates(Rectangle screenRect, Point primaryWorkAreaOrigin) =>
-        new Rectangle(
-            screenRect.X - primaryWorkAreaOrigin.X,
-            screenRect.Y - primaryWorkAreaOrigin.Y,
-            screenRect.Width,
-            screenRect.Height);
-
     // The size a window should become when it moves from one monitor to another, so it
     // keeps occupying the same percentage of screen it did before. Plain pixel size (what
     // drag-and-drop keeps) looks wrong once the two monitors have different resolutions -

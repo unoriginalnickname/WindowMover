@@ -155,69 +155,30 @@ internal static class WindowMoveActions
         }
     }
 
-    // Moves a maximized window directly onto the target monitor in one Win32 call, instead
-    // of restore -> move -> maximize as three separate calls (see ISSUES.md history: that
-    // sequence visibly shrinks the window to its old restored size, jumps it, then grows it
-    // back to maximized). SetWindowPlacement lets us set the window's "restored" position
-    // to the target monitor's own working area and ask for it maximized in one shot, so
-    // Windows never has to show it at any other size in between.
+    // Moving a maximized window is not a matter of handing it new bounds. A maximized window
+    // ignores SetWindowPos, and SetWindowPlacement's rcNormalPosition only describes where it
+    // will land when it *leaves* the maximized state - so neither one moves it while it stays
+    // maximized. Measured against real apps (ISSUES.md #4): SetWindowPlacement alone moved
+    // nothing at all, and following it with minimize-then-maximize - a real state transition,
+    // which is what this code used to do - moved Notepad and Edge but did nothing whatsoever
+    // for VS Code, which reasserts its own idea of where the window belongs as it re-enters
+    // the maximized state. Taking the window out of the maximized state onto the target
+    // monitor and maximizing it there is the one sequence that worked for every app tested,
+    // and WindowMover.LiveTests pins it down against a real VS Code window.
+    //
+    // The landing rectangle is the target monitor's working area rather than the window's own
+    // remembered restored size, so the intermediate frame is already close to what the window
+    // ends up as: the move reads as a jump between monitors instead of a shrink, a jump and a
+    // grow. It costs the remembered restored size, which the SetWindowPlacement version
+    // overwrote with this same rectangle anyway.
     private static void MoveMaximizedWindowToScreen(IntPtr hwnd, Screen target)
     {
-        var primary = Screen.PrimaryScreen;
-        var placement = new WINDOWPLACEMENT { length = Marshal.SizeOf<WINDOWPLACEMENT>() };
-
-        if (primary is null || !GetWindowPlacement(hwnd, ref placement))
-        {
-            DebugLog.Write($"Move [{DebugLog.DescribeWindowProcess(hwnd)}]: GetWindowPlacement unavailable, falling back to restore/move/maximize");
-            MoveMaximizedWindowTheSlowWay(hwnd, target);
-            return;
-        }
-
-        Rectangle workspaceRect = WindowPlacement.ToWorkspaceCoordinates(target.WorkingArea, primary.WorkingArea.Location);
-
-        placement.showCmd = SW_MAXIMIZE;
-        placement.rcNormalPosition = new RECT
-        {
-            Left = workspaceRect.Left,
-            Top = workspaceRect.Top,
-            Right = workspaceRect.Right,
-            Bottom = workspaceRect.Bottom
-        };
-        // ptMaxPosition is a real workspace-coordinate point (the window's maximized
-        // top-left corner), not a screen-space or "auto" value - MSDN documents it in the
-        // same coordinate space as rcNormalPosition. Left over from the OLD monitor, or set
-        // to a bogus sentinel, it disagrees with rcNormalPosition about which monitor the
-        // window belongs to, which is why the window wasn't showing up correctly.
-        placement.ptMaxPosition = new POINT { X = workspaceRect.Left, Y = workspaceRect.Top };
-
-        if (!SetWindowPlacement(hwnd, ref placement))
-        {
-            ReportMoveOutcome(hwnd, false, $"SetWindowPlacement to {workspaceRect}");
-            MoveMaximizedWindowTheSlowWay(hwnd, target);
-            return;
-        }
-
-        // SetWindowPlacement updates the window's placement bookkeeping, but since it
-        // already reports itself as maximized, a follow-up ShowWindow(SW_MAXIMIZE) alone is
-        // treated as "already there" and is a no-op - Windows never actually redraws it at
-        // the new placement. A real state transition is needed to force that: minimizing
-        // and then maximizing again is exactly the manual workaround that was confirmed to
-        // work, so the code does the same thing instead of leaving it to the user.
-        ShowWindow(hwnd, SW_MINIMIZE);
-        ShowWindow(hwnd, SW_MAXIMIZE);
-        BringToFrontAfterClickLands(hwnd);
-    }
-
-    // The original restore -> move -> maximize sequence, kept only as a fallback for the
-    // rare case GetWindowPlacement/SetWindowPlacement itself fails.
-    private static void MoveMaximizedWindowTheSlowWay(IntPtr hwnd, Screen target)
-    {
-        var bounds = WindowPlacement.Centered(target.Bounds, new Size(WindowWidth, WindowHeight));
+        Rectangle landing = target.WorkingArea;
 
         ShowWindow(hwnd, SW_RESTORE);
-        SetWindowPos(hwnd, IntPtr.Zero,
-            bounds.X, bounds.Y, bounds.Width, bounds.Height,
-            SWP_NOZORDER | SWP_NOACTIVATE);
+        ReportMoveOutcome(hwnd, SetWindowPos(hwnd, IntPtr.Zero,
+            landing.X, landing.Y, landing.Width, landing.Height,
+            SWP_NOZORDER | SWP_NOACTIVATE), $"SetWindowPos to {landing} (maximized move)");
         ShowWindow(hwnd, SW_MAXIMIZE);
         BringToFrontAfterClickLands(hwnd);
     }

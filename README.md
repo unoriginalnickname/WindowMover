@@ -95,7 +95,8 @@ differently-scaled monitors, overriding the size WindowMover just set.
 |---|---|
 | `WindowMoverFinal` | The Windows Forms app: P/Invoke, the mouse hook, the tray icon |
 | `WindowMover.Core` | The logic that decides which window moves and where it lands |
-| `WindowMover.Tests` | xUnit tests for the core |
+| `WindowMover.Tests` | xUnit tests for the core - pure logic, instant, silent |
+| `WindowMover.LiveTests` | xUnit tests that move real windows on the real desktop |
 
 ## Building and testing
 
@@ -106,6 +107,26 @@ Windows.
 dotnet build
 dotnet test
 ```
+
+`dotnet test` runs both suites. `WindowMover.Tests` is pure logic - instant and
+silent. `WindowMover.LiveTests` drives the real move code against real windows:
+it moves windows between your monitors, takes the foreground, and opens a
+throwaway VS Code window (with its own temporary profile and extensions
+directory, so it never touches the editor you have open). That one is worth
+running deliberately rather than while you are working:
+
+```
+dotnet test WindowMover.Tests/WindowMover.Tests.csproj      # quiet, always safe
+dotnet test WindowMover.LiveTests/WindowMover.LiveTests.csproj
+```
+
+The live suite exists because the unit tests cannot see whether Windows
+actually honoured a move. A maximized VS Code window silently refused to move
+for as long as the app had existed, and no unit test could have caught it - a
+plain test window, Notepad and Edge all move fine under the same broken code,
+which is why one of these tests uses VS Code itself. Live tests are skipped
+automatically on a single-monitor machine, and the VS Code one is skipped when
+VS Code is not installed.
 
 To produce the executable:
 

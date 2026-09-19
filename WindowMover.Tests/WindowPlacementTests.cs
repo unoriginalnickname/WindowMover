@@ -127,40 +127,6 @@ public class WindowPlacementTests
     }
 
     [Fact]
-    public void Workspace_coordinates_match_screen_coordinates_when_the_primary_monitor_has_no_offset()
-    {
-        // The common case: taskbar on the bottom or right, so the primary monitor's work
-        // area starts at (0, 0) same as its screen bounds.
-        var screenRect = new Rectangle(1920, 0, 1920, 1040);
-
-        var workspaceRect = WindowPlacement.ToWorkspaceCoordinates(screenRect, new Point(0, 0));
-
-        Assert.Equal(screenRect, workspaceRect);
-    }
-
-    [Fact]
-    public void Workspace_coordinates_subtract_the_primary_monitors_work_area_origin()
-    {
-        // Taskbar on the primary monitor's left edge pushes its work area's origin right by
-        // the taskbar's width - every rectangle's coordinates shift by that same amount.
-        var screenRect = new Rectangle(1920, 0, 1920, 1080);
-
-        var workspaceRect = WindowPlacement.ToWorkspaceCoordinates(screenRect, new Point(48, 0));
-
-        Assert.Equal(new Rectangle(1872, 0, 1920, 1080), workspaceRect);
-    }
-
-    [Fact]
-    public void Workspace_coordinates_can_go_negative_for_a_monitor_left_of_the_primary()
-    {
-        var screenRect = new Rectangle(-1920, 0, 1920, 1080);
-
-        var workspaceRect = WindowPlacement.ToWorkspaceCoordinates(screenRect, new Point(0, 0));
-
-        Assert.Equal(new Rectangle(-1920, 0, 1920, 1080), workspaceRect);
-    }
-
-    [Fact]
     public void Matching_monitor_resolutions_keep_the_window_the_same_pixel_size()
     {
         var source = new Rectangle(0, 0, 1920, 1080);

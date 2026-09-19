@@ -16,7 +16,6 @@ internal static class NativeMethods
     // Window Management Constants
     public const int SW_HIDE = 0;                    // Hide window (no taskbar flash, no destroy)
     public const int SW_RESTORE = 9;                 // Restore window from maximized/minimized
-    public const int SW_MINIMIZE = 6;                // Minimize window
     public const int SW_MAXIMIZE = 3;                // Maximize window
     public const int SW_SHOWNA = 8;                  // Show window in its current state, without activating it
     public const uint SWP_NOZORDER = 0x0004;         // Don't change Z-order when repositioning
@@ -51,19 +50,6 @@ internal static class NativeMethods
     // Structure for window rectangle (bounds)
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT { public int Left, Top, Right, Bottom; }
-
-    // A window's placement state - used to move a maximized window directly onto another
-    // monitor in one call instead of restore -> move -> maximize as three separate calls.
-    [StructLayout(LayoutKind.Sequential)]
-    public struct WINDOWPLACEMENT
-    {
-        public int length;
-        public int flags;
-        public int showCmd;
-        public POINT ptMinPosition;
-        public POINT ptMaxPosition;
-        public RECT rcNormalPosition;
-    }
 
     // Structure for low-level mouse hook data
     [StructLayout(LayoutKind.Sequential)]
@@ -111,8 +97,6 @@ internal static class NativeMethods
     [DllImport("Shcore.dll")] public static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
     [DllImport("user32.dll")] public static extern IntPtr GetWindowDpiAwarenessContext(IntPtr hwnd);
     [DllImport("user32.dll")] public static extern int GetAwarenessFromDpiAwarenessContext(IntPtr dpiContext);
-    [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
-    [DllImport("user32.dll", SetLastError = true)] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
     [DllImport("user32.dll")] public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
     [DllImport("user32.dll")] public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
