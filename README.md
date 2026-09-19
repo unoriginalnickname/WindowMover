@@ -74,9 +74,11 @@ Only one instance runs at a time.
 
 A low-level mouse hook (`WH_MOUSE_LL`) intercepts Mouse4 and Mouse5 events
 system-wide. When a side button is held and the middle button is pressed, the
-window moves to the target monitor. A maximized window is moved directly via
-`SetWindowPlacement` onto the target monitor's own working area, still
-maximized, rather than visibly restoring and re-maximizing.
+window moves to the target monitor. A maximized window cannot simply be handed
+new bounds - it ignores them - so it is restored onto the target monitor's
+working area and maximized again there. Landing on the working area means the
+intermediate frame is already close to the final size, so the move reads as a
+jump between monitors rather than a shrink, a jump and a grow.
 
 A moved window is brought to the front and focused once it lands, so it can't
 arrive buried behind whatever was already on that monitor. That happens a beat

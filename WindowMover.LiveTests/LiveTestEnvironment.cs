@@ -47,11 +47,11 @@ public sealed class LiveFactAttribute : FactAttribute
 // exists - it reasserts its own idea of where a maximized window belongs, and no test using
 // an ordinary window catches that (ISSUES.md #4). Measured, not assumed: Notepad and Edge
 // both move where the broken sequence put them, so neither can stand in for it.
-public sealed class ElectronFactAttribute : FactAttribute
+public sealed class VsCodeFactAttribute : FactAttribute
 {
-    public ElectronFactAttribute()
+    public VsCodeFactAttribute()
     {
         if (Screen.AllScreens.Length < 2) Skip = "Needs at least two monitors";
-        else if (ElectronWindow.FindEditor() is null) Skip = "VS Code is not installed to test against";
+        else if (VsCodeWindow.FindEditor() is null) Skip = "VS Code is not installed to test against";
     }
 }

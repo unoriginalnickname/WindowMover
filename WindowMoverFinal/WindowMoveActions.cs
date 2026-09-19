@@ -14,8 +14,9 @@ internal static class WindowMoveActions
     // Chrome/YouTube's spacebar-to-pause) treat as a real backgrounding signal.
     public static bool HideDuringDpiCorrection { get; set; } = true;
 
-    // Fallback size for a maximized window's remembered restored size, and for the rare
-    // case a window's current bounds or monitor can't be read - see DetermineWindowBounds.
+    // Fallback size for the rare case a window's current bounds or monitor can't be read,
+    // leaving nothing to size proportionally from - see DetermineWindowBounds. The maximized
+    // path no longer has any use for it: it lands on the target monitor's working area.
     private const int WindowWidth = 800;
     private const int WindowHeight = 600;
 
@@ -87,7 +88,8 @@ internal static class WindowMoveActions
         return WindowMoveFilter.IsSafeToMove(Describe(hwnd));
     }
 
-    // Moves a window to a specific screen, centered
+    // Moves a window onto a specific screen: maximized windows stay maximized, everything
+    // else keeps its relative position and proportional size (see DetermineWindowBounds).
     public static void MoveWindowToScreen(IntPtr hwnd, Screen target)
     {
         if (!IsSafeMovableWindow(hwnd))

@@ -13,6 +13,7 @@ internal sealed class TestWindow : IDisposable
 
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] private static extern bool IsZoomed(IntPtr hWnd);
 
     private readonly Thread thread;
     private readonly Form form;
@@ -64,6 +65,15 @@ internal sealed class TestWindow : IDisposable
         SetWindowPos(window.Handle, IntPtr.Zero, work.X, work.Y, work.Width, work.Height, SWP_NOZORDER | SWP_NOACTIVATE);
         ShowWindow(window.Handle, SW_MAXIMIZE);
         Thread.Sleep(300);
+
+        // A window that quietly failed to maximize would send every test using it down the
+        // restored path instead, passing while proving nothing about the case they name.
+        if (!IsZoomed(window.Handle))
+        {
+            window.Dispose();
+            throw new InvalidOperationException("Test window did not maximize");
+        }
+
         return window;
     }
 

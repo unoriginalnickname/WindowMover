@@ -5,21 +5,22 @@ namespace WindowMover.LiveTests;
 
 // A real VS Code window, launched and owned by the test.
 //
-// This is the whole point of the live suite. An Electron window reasserts its own idea of
-// where it belongs when it leaves and re-enters the maximized state, so a move sequence that
-// works on every other window tested can still leave this one exactly where it started -
-// which is what VS Code did (ISSUES.md #4) while Notepad moved perfectly.
+// This is the whole point of the live suite. VS Code reasserts its own idea of where it
+// belongs when it leaves and re-enters the maximized state, so a move sequence that works on
+// every other window tested can still leave this one exactly where it started - which is what
+// it did (ISSUES.md #4) while Notepad moved perfectly.
 //
-// VS Code specifically, and not "a Chromium window": Edge was measured against the same
-// three sequences and behaved like Notepad, moving where the broken sequence put it. Sharing
-// Chromium is not what makes the difference, so only an app that actually reproduces it is
-// worth a test - and the app that reproduces it is this one.
+// Named for the app and nothing broader. "A Chromium window" was the first guess and it was
+// wrong: Edge is Chromium, was measured against the same three sequences on a clean profile,
+// and moved where the broken sequence put it. Whether other Electron apps behave like VS Code
+// was never measured, so this does not claim they do - it tests the one app known to
+// reproduce the fault.
 //
 // Always launched with a throwaway user-data-dir and extensions-dir: that forces a window of
 // its own, unaffected by the real VS Code's saved window state and settings, so the test can
 // never disturb - or be disturbed by - the editor the user is working in. A clean profile
 // still reproduces the fault, which is how we know it is not something stale in a profile.
-internal sealed class ElectronWindow : IDisposable
+internal sealed class VsCodeWindow : IDisposable
 {
     private const int SW_MAXIMIZE = 3;
     private const uint SWP_NOZORDER = 0x0004;
@@ -34,7 +35,7 @@ internal sealed class ElectronWindow : IDisposable
 
     public IntPtr Handle { get; }
 
-    private ElectronWindow(Process process, string scratchDirectory, IntPtr handle)
+    private VsCodeWindow(Process process, string scratchDirectory, IntPtr handle)
     {
         this.process = process;
         this.scratchDirectory = scratchDirectory;
@@ -54,7 +55,7 @@ internal sealed class ElectronWindow : IDisposable
 
     // Launches a VS Code window maximized on the given monitor, or returns null if it never
     // produced a window to work with.
-    public static ElectronWindow? TryLaunchMaximized(Screen monitor)
+    public static VsCodeWindow? TryLaunchMaximized(Screen monitor)
     {
         string? editor = FindEditor();
         if (editor is null) return null;
@@ -93,7 +94,7 @@ internal sealed class ElectronWindow : IDisposable
             return null;
         }
 
-        return new ElectronWindow(process, scratch, handle);
+        return new VsCodeWindow(process, scratch, handle);
     }
 
     private static IntPtr WaitForMainWindow(Process process, TimeSpan timeout)
