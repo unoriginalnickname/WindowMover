@@ -58,10 +58,12 @@ hand focus to some other on-screen window.
 Run `WindowMover.exe`. It appears in the system tray. Right-click the tray icon for:
 
 - **Start with Windows** — toggle auto-launch on login
-- **Hide window during monitor-crossing resize** — on by default. Some apps
-  briefly resize themselves wrong right after a monitor-crossing move before
-  WindowMover corrects them; this hides the window for that moment instead of
-  showing the wrong size. It is hidden by making it fully transparent, not by
+- **Hide window while it moves** — on by default. Covers two things that are
+  ugly to watch: some apps briefly resize themselves wrong right after a
+  monitor-crossing move before WindowMover corrects them, and a maximized move
+  has to restore, reposition and re-maximize the window, each of which Windows
+  animates. The window is hidden until it stops moving, then shown where it
+  landed. It is hidden by making it fully transparent, not by
   `ShowWindow(SW_HIDE)`: as far as Windows is concerned the window never stops
   being visible, so it keeps its taskbar button, its place in the Z-order and
   its focus. Turn it off if you would rather this app never touched how your
@@ -79,9 +81,11 @@ A low-level mouse hook (`WH_MOUSE_LL`) intercepts Mouse4 and Mouse5 events
 system-wide. When a side button is held and the middle button is pressed, the
 window moves to the target monitor. A maximized window cannot simply be handed
 new bounds - it ignores them - so it is restored onto the target monitor's
-working area and maximized again there. Landing on the working area means the
-intermediate frame is already close to the final size, so the move reads as a
-jump between monitors rather than a shrink, a jump and a grow.
+working area and maximized again there. Those are three visible state changes
+and Windows animates each one, so the window is hidden for the whole sequence
+and revealed once it stops moving - which is watched for, not waited out on a
+guessed timer, because the maximize animation runs on after the call that
+started it returns.
 
 When a window lands, WindowMover draws a brief outline at its new position with
 the monitor's number in it, fading out over about half a second. That is how a

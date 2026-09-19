@@ -50,7 +50,11 @@ internal static class DpiCorrectionScheduler
     private sealed class PendingCorrection
     {
         public required System.Windows.Forms.Timer DebounceTimer;
-        public required Rectangle FallbackBounds;
+        // The size to force back if an app resizes itself away from it, or null for a watch
+        // that exists only to wait until the window stops changing - which is what a maximized
+        // move needs: nothing about its size to correct, just a moment to stop moving before
+        // it is shown again.
+        public required Rectangle? FallbackBounds;
         public required DateTime Deadline;
         // How to undo the transparency WindowMoveActions applied for the duration of the
         // correction, or null when it did not hide this window at all.
@@ -104,15 +108,34 @@ internal static class DpiCorrectionScheduler
         if (!pendingDpiCorrections.TryGetValue(hwnd, out var pending)) return;
         RemovePending(hwnd, pending);
 
+        if (pending.FallbackBounds is not { } fallback) return; // nothing to correct, only to reveal
         if (!GetWindowRect(hwnd, out RECT r)) return; // window gone
         if (IsZoomed(hwnd)) return; // maximized since the correction was scheduled - not ours to touch
-        if (RoughlyEqual(ToRectangle(r), pending.FallbackBounds)) return; // already correct
+        if (RoughlyEqual(ToRectangle(r), fallback)) return; // already correct
 
         SetWindowPos(hwnd, IntPtr.Zero,
-            pending.FallbackBounds.X, pending.FallbackBounds.Y,
-            pending.FallbackBounds.Width, pending.FallbackBounds.Height,
+            fallback.X, fallback.Y, fallback.Width, fallback.Height,
             SWP_NOZORDER | SWP_NOACTIVATE);
-        DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: resolved pending correction early to fallback={pending.FallbackBounds} before a new move");
+        DebugLog.Write($"DPI correction [{DebugLog.DescribeWindowProcess(hwnd)}]: resolved pending correction early to fallback={fallback} before a new move");
+    }
+
+    // Keeps a hidden window hidden until it stops moving, then reveals it - no size to police,
+    // so the first quiet moment ends it. A maximized move visibly restores the window, drops it
+    // on the other monitor and maximizes it again, and Windows animates each of those steps;
+    // watching for the end of that is what turns it from a stagger into an arrival.
+    public static void WatchUntilSettled(IntPtr hwnd, WindowMoveActions.TransparencyRestore hidden)
+    {
+        EnsureLocationChangeWatcherInstalled();
+
+        var pending = new PendingCorrection
+        {
+            DebounceTimer = null!,
+            FallbackBounds = null,
+            Deadline = DateTime.UtcNow.AddMilliseconds(MaxTotalCorrectionWindowMs),
+            HiddenForCorrection = hidden
+        };
+        pending.DebounceTimer = StartDebounceTimer(hwnd);
+        pendingDpiCorrections[hwnd] = pending;
     }
 
     public static void ScheduleDpiCompensationCheck(IntPtr hwnd, Rectangle fallbackBounds, WindowMoveActions.TransparencyRestore? hiddenForCorrection)
@@ -174,10 +197,17 @@ internal static class DpiCorrectionScheduler
         if (!GetWindowRect(hwnd, out RECT r)) { DebugLog.Write($"DPI correction [{process}]: window gone"); RemovePending(hwnd, pending); return; }
         if (IsZoomed(hwnd)) { DebugLog.Write($"DPI correction [{process}]: now maximized, abandoning correction"); RemovePending(hwnd, pending); return; }
 
-        Rectangle actual = ToRectangle(r);
-        if (RoughlyEqual(actual, pending.FallbackBounds))
+        if (pending.FallbackBounds is not { } fallback)
         {
-            DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={pending.FallbackBounds} (settled)");
+            DebugLog.Write($"Move [{process}]: window settled after a maximized move, revealing");
+            RemovePending(hwnd, pending);
+            return;
+        }
+
+        Rectangle actual = ToRectangle(r);
+        if (RoughlyEqual(actual, fallback))
+        {
+            DebugLog.Write($"DPI correction [{process}]: actual={actual} already matches fallback={fallback} (settled)");
             RemovePending(hwnd, pending);
             return;
         }
@@ -185,17 +215,17 @@ internal static class DpiCorrectionScheduler
         if (DateTime.UtcNow >= pending.Deadline)
         {
             bool giveUpApplied = SetWindowPos(hwnd, IntPtr.Zero,
-                pending.FallbackBounds.X, pending.FallbackBounds.Y, pending.FallbackBounds.Width, pending.FallbackBounds.Height,
+                fallback.X, fallback.Y, fallback.Width, fallback.Height,
                 SWP_NOZORDER | SWP_NOACTIVATE);
-            DebugLog.Write($"DPI correction [{process}]: actual={actual} hit max correction window -> fallback={pending.FallbackBounds}, applied={giveUpApplied}, giving up");
+            DebugLog.Write($"DPI correction [{process}]: actual={actual} hit max correction window -> fallback={fallback}, applied={giveUpApplied}, giving up");
             RemovePending(hwnd, pending);
             return;
         }
 
         bool applied = SetWindowPos(hwnd, IntPtr.Zero,
-            pending.FallbackBounds.X, pending.FallbackBounds.Y, pending.FallbackBounds.Width, pending.FallbackBounds.Height,
+            fallback.X, fallback.Y, fallback.Width, fallback.Height,
             SWP_NOZORDER | SWP_NOACTIVATE);
-        DebugLog.Write($"DPI correction [{process}]: actual={actual} settled wrong -> fallback={pending.FallbackBounds}, applied={applied}");
+        DebugLog.Write($"DPI correction [{process}]: actual={actual} settled wrong -> fallback={fallback}, applied={applied}");
 
         // Re-arm rather than remove: the correction just applied might get fought again (or
         // might not stick for some other reason), and the deadline above bounds how long this

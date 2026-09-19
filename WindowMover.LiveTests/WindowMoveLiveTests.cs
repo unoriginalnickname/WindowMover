@@ -161,6 +161,31 @@ public class WindowMoveLiveTests
         }
     }
 
+    // A maximized move hides the window for the whole restore/reposition/maximize sequence,
+    // which means something has to put it back. If that ever fails to happen the window is
+    // still there, still in the taskbar, and completely invisible - the worst outcome this
+    // code can produce, and the one worth a test of its own.
+    [LiveFact]
+    public void A_maximized_move_leaves_the_window_visible_again()
+    {
+        using var host = new MoveHost();
+        using var window = TestWindow.Maximized(Source);
+        AssertStartsOn(Source, window.Handle);
+
+        host.MoveToScreen(window.Handle, Target);
+
+        // Generous, because it must outlast the scheduler's own hard deadline: if the watch
+        // never settles, that deadline is what ends it, and the window must come back either way.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(8);
+        while (DateTime.UtcNow < deadline && (GetWindowLong(window.Handle, GWL_EXSTYLE) & WS_EX_LAYERED) != 0)
+            Thread.Sleep(100);
+
+        Assert.True((GetWindowLong(window.Handle, GWL_EXSTYLE) & WS_EX_LAYERED) == 0,
+            "The window was left layered after a maximized move - it is invisible and nothing else will put it back");
+        Assert.True(IsWindowVisible(window.Handle), "The window is no longer visible to Windows after a maximized move");
+        AssertLandsOn(Target, window.Handle);
+    }
+
     // Moving across a DPI boundary puts the window through the correction pass, during which
     // the app hides it. It must do that without the window ever stopping being visible as far
     // as Windows is concerned: the shell drops a window's taskbar button the moment it does,

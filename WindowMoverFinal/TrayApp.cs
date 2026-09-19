@@ -23,7 +23,7 @@ internal static class TrayApp
         // neither of those should happen; the toggle stays for anyone who would rather this
         // app never touched their windows' appearance and took the flash instead.
         var hideDuringResizeItem = new ToolStripMenuItem(
-            "Hide window during monitor-crossing resize",
+            "Hide window while it moves",
             null, (s, e) =>
             {
                 var item = (ToolStripMenuItem)s!;

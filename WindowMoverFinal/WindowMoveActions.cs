@@ -171,12 +171,21 @@ internal static class WindowMoveActions
     {
         Rectangle landing = target.WorkingArea;
 
+        // Hidden for the whole sequence, not just part of it. Restoring, repositioning and
+        // re-maximizing are three visible state changes and Windows animates each one, which
+        // is what reads as the move juddering rather than happening. The window is put back
+        // once it stops moving - the maximize animation runs on after ShowWindow returns, so
+        // revealing here would show the tail of exactly what this is hiding.
+        TransparencyRestore? hidden = HideDuringDpiCorrection ? TryHideByTransparency(hwnd) : null;
+
         ShowWindow(hwnd, SW_RESTORE);
         ReportMoveOutcome(hwnd, SetWindowPos(hwnd, IntPtr.Zero,
             landing.X, landing.Y, landing.Width, landing.Height,
             SWP_NOZORDER | SWP_NOACTIVATE), $"SetWindowPos to {landing} (maximized move)");
         ShowWindow(hwnd, SW_MAXIMIZE);
         MoveIndicator.Show(target, landing);
+
+        if (hidden is { } restore) DpiCorrectionScheduler.WatchUntilSettled(hwnd, restore);
     }
 
     // Where and what size a non-maximized window should become: it lands at the same
