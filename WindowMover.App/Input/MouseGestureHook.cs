@@ -2,9 +2,11 @@ using System.Runtime.InteropServices;
 using WindowMover.Core;
 using static NativeMethods;
 
-// Installs the low-level mouse hook and turns raw button events into move commands via
-// ButtonComboTracker. This function is called for every mouse event system-wide.
-internal static class MouseHook
+// The gesture: a side button held, then a middle click. This installs the low-level mouse
+// hook, which Windows calls for every mouse event system-wide, and hands what it sees to
+// ButtonComboTracker (in WindowMover.Core) to say what the combination means. Whatever the
+// tracker decides is a move, WindowMove carries out.
+internal static class MouseGestureHook
 {
     private static IntPtr hookId;
 
@@ -45,7 +47,7 @@ internal static class MouseHook
                 // Grab the focused window now - by the time the user middle-clicks,
                 // something else may have taken focus
                 IntPtr fg = GetForegroundWindow();
-                IntPtr captured = WindowMoveActions.WindowToCapture(fg);
+                IntPtr captured = MovableWindowCheck.CaptureIfMovable(fg);
                 // Logged on every side-button press, not only the ones that end in a move:
                 // when a gesture does nothing at all, this line is what says whether the hook
                 // even saw the press, and which window it grabbed.
@@ -67,10 +69,10 @@ internal static class MouseHook
                 if (request.Command == MoveCommand.CursorMonitor)
                 {
                     if (GetCursorPos(out POINT p))
-                        WindowMoveActions.MoveWindowToScreen(request.Window, Screen.FromPoint(new Point(p.X, p.Y)));
+                        WindowMove.ToMonitor(request.Window, Screen.FromPoint(new Point(p.X, p.Y)));
                 }
                 else if (request.Command == MoveCommand.NextMonitor)
-                    WindowMoveActions.MoveWindowToNextScreen(request.Window);
+                    WindowMove.ToNextMonitor(request.Window);
             }
         }
         // Pass the event to the next hook in the chain

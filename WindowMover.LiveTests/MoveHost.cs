@@ -11,7 +11,7 @@ namespace WindowMover.LiveTests;
 //     while something is pumping messages. Called from an xUnit thread, those parts would
 //     never run and the test would quietly be exercising a shape of the code that does not
 //     exist in the app.
-//   - Whatever a move left running has to be shut down afterwards. DpiCorrectionScheduler
+//   - Whatever a move left running has to be shut down afterwards. MoveSettleWatcher
 //     keeps static per-window state and installs a system-wide WinEvent hook while a
 //     correction is pending. Left behind, each test leaks a hook and hands the next test a
 //     scheduler that still believes in windows that have since been destroyed.
@@ -20,16 +20,16 @@ internal sealed class MoveHost : IDisposable
     private readonly MessageLoopThread loop = new();
 
     public void MoveToScreen(IntPtr hwnd, Screen target) =>
-        loop.Invoke(() => WindowMoveActions.MoveWindowToScreen(hwnd, target));
+        loop.Invoke(() => WindowMove.ToMonitor(hwnd, target));
 
     public void MoveToNextScreen(IntPtr hwnd) =>
-        loop.Invoke(() => WindowMoveActions.MoveWindowToNextScreen(hwnd));
+        loop.Invoke(() => WindowMove.ToNextMonitor(hwnd));
 
     public void Dispose()
     {
         // On the loop thread, because that is where its timers were created - the same
         // reason the app shuts it down from its own message loop rather than anywhere else.
-        try { loop.Invoke(DpiCorrectionScheduler.Shutdown); }
+        try { loop.Invoke(MoveSettleWatcher.Shutdown); }
         catch (InvalidOperationException) { /* loop already gone */ }
         loop.Dispose();
     }

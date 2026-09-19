@@ -2,13 +2,19 @@
 // Controls: Mouse4 + Mouse3 (middle click) = move to cursor's monitor,
 //           Mouse5 + Mouse3 = cycle to next monitor
 //
-// This file is just the entry point. The Windows half of the app - P/Invoke declarations
-// (NativeMethods), the mouse hook (MouseHook), moving windows (WindowMoveActions), DPI
-// self-correction (DpiCorrectionScheduler), the tray icon (TrayApp), and the startup
-// registry entry (StartupRegistry) - each live in their own file. The decisions - which
-// window may be moved, which monitor is next, where on that monitor the window goes, what
-// a button combo means - live in WindowMover.Core, which knows nothing about Win32 and can
-// therefore be tested.
+// This file is only the entry point: start everything, run the message loop, stop
+// everything. The rest of the app is one folder per job -
+//
+//   Input/       the gesture, from raw mouse events to "move that window"
+//   Moving/      whether a window may be moved, where it lands, and putting it there
+//   Feedback/    the outline that shows where it went
+//   Tray/        the tray icon, its toggles, and where they are saved
+//   Win32/       the raw P/Invoke surface everything above calls through
+//   Diagnostics/ the log, for the behavior no test can reach
+//
+// - and the decisions themselves - which window may be moved, which monitor is next, where
+// on that monitor the window goes, what a button combo means - live in WindowMover.Core,
+// which knows nothing about Win32 and can therefore be tested.
 class Program
 {
     [STAThread]
@@ -31,20 +37,20 @@ class Program
             return;
         }
 
-        // Load persisted tray-menu toggles before TrayApp reads them to set initial Checked state
-        WindowMoveActions.HideDuringDpiCorrection = Settings.LoadHideDuringDpiCorrection();
-
-        MoveIndicator.Enabled = Settings.LoadShowMoveIndicator();
+        // Restore the tray menu's toggles before the menu is built, so each item opens
+        // showing the state it was left in rather than its default.
+        WindowTransparency.HideWhileMoving = UserSettings.LoadHideWhileMoving();
+        MoveIndicator.Enabled = UserSettings.LoadShowMoveIndicator();
 
         // Install low-level mouse hook to intercept all mouse events
-        MouseHook.Install();
+        MouseGestureHook.Install();
 
         // Watch for the user manually grabbing a window's move/resize border, so a pending
-        // DPI self-correction backs off instead of fighting them mid-drag
-        DpiCorrectionScheduler.InstallManualResizeWatcher();
+        // size correction backs off instead of fighting them mid-drag
+        MoveSettleWatcher.InstallManualResizeWatcher();
 
         // Create and display system tray icon and context menu
-        var trayIcon = TrayApp.Create();
+        var trayIcon = SystemTrayIcon.Create();
 
         // After the tray icon exists, perform cleanup and notify user if entries were removed
         int removedCount = StartupRegistry.CleanupOldRunEntries();
@@ -61,9 +67,9 @@ class Program
 
         // Cleanup on exit
         MoveIndicator.Hide();
-        MouseHook.Uninstall();
-        DpiCorrectionScheduler.UninstallManualResizeWatcher();
-        DpiCorrectionScheduler.Shutdown();
+        MouseGestureHook.Uninstall();
+        MoveSettleWatcher.UninstallManualResizeWatcher();
+        MoveSettleWatcher.Shutdown();
         trayIcon?.Dispose();
     }
 }

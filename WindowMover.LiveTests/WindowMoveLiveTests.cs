@@ -157,7 +157,7 @@ public class WindowMoveLiveTests
         Assert.NotEmpty(indicators);
         foreach (IntPtr indicator in indicators)
         {
-            Assert.Equal(IntPtr.Zero, WindowMoveActions.WindowToCapture(indicator));
+            Assert.Equal(IntPtr.Zero, MovableWindowCheck.CaptureIfMovable(indicator));
         }
     }
 

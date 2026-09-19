@@ -67,28 +67,25 @@ internal static class StartupRegistry
         catch { }
     }
 
-    // Toggles the "Start with Windows" setting in the registry
-    public static void ToggleStartup(ToolStripMenuItem item)
+    // Turns "Start with Windows" on or off, and reports whether the registry actually took
+    // it. False means nothing changed - the caller's menu tick should stay where it was
+    // rather than claim a setting that was never written.
+    public static bool TrySetStartupEnabled(bool enabled)
     {
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, true);
-            if (key == null) return;
+            if (key == null) return false;
 
-            if (item.Checked)
-            {
-                key.DeleteValue(ValueName, false);
-                item.Checked = false;
-            }
+            if (enabled)
+                // Quoted to survive spaces in the path.
+                key.SetValue(ValueName, '"' + Application.ExecutablePath + '"', RegistryValueKind.String);
             else
-            {
-                // Quote the path to handle spaces and store as a string.
-                string exePath = Application.ExecutablePath;
-                key.SetValue(ValueName, '"' + exePath + '"', RegistryValueKind.String);
-                item.Checked = true;
-            }
+                key.DeleteValue(ValueName, false);
+
+            return true;
         }
-        catch { }
+        catch { return false; }
     }
 
     // Scans HKCU Run values and removes entries pointing to WindowMover.exe in other locations.
