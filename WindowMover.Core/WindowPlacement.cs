@@ -62,13 +62,16 @@ public static class WindowPlacement
             (int)Math.Round(targetMonitorBounds.Height * heightRatio));
     }
 
-    // Never let a computed size exceed the monitor it's landing on. CompensateForTargetDpiResponse
-    // (Program.cs) deliberately inflates the size it hands back, betting that the target
-    // app's own DPI-change handling will shrink it back down a moment later - a bet that
-    // doesn't pay off for every app, and for a large-enough source window crossing onto a
-    // lower-DPI monitor, the inflated size can come out bigger than the monitor itself. A
-    // window slightly off from the "ideal" compensated size is fine; a window bigger than
-    // the screen it's on is not.
+    // Never let a computed size exceed the monitor it's landing on. ProportionalSize scales by
+    // the window's current size over its source monitor, so any window bigger than that
+    // monitor's working area comes back bigger than the target's - and a window can be: sized
+    // to the full screen bounds rather than the working area, or matched to a source monitor
+    // that was only the best guess available for a window straddling two or sitting off-screen
+    // entirely. A window slightly off from the ideal proportional size is fine; a window
+    // bigger than the screen it's on is not.
+    //
+    // This also guarded a retired approach that deliberately inflated the size (see
+    // DetermineTargetSize below), where the overshoot was far larger and routine.
     public static Size ClampToMonitor(Size size, Rectangle monitorBounds) =>
         new Size(
             Math.Min(size.Width, monitorBounds.Width),
@@ -81,8 +84,8 @@ public static class WindowPlacement
     // A per-monitor-DPI-aware app (Chrome, Explorer) auto-resizes itself the moment it detects
     // a DPI change regardless of what size it's handed, so betting on a guessed value never
     // avoided needing a reactive correction step anyway; setting the plain correct size
-    // directly and reactively correcting *any* app that changes it away from that (Program.cs's
-    // DPI-correction fallback) is simpler, needs no DPI-ratio math at all, and additionally
+    // directly and reactively correcting *any* app that changes it away from that (the app's
+    // MoveSettleWatcher) is simpler, needs no DPI-ratio math at all, and additionally
     // means an app that never touches its size (VLC, Steam) lands correct immediately with no
     // correction step, instead of always paying for one.
     public static Size DetermineTargetSize(Rectangle sourceWorkingArea, Size currentSize, Rectangle targetWorkingArea) =>

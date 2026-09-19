@@ -55,7 +55,7 @@ hand focus to some other on-screen window.
 
 ## Installation
 
-Run `WindowMover.exe`. It appears in the system tray. Right-click the tray icon for:
+Run `WindowMover.App.exe`. It appears in the system tray. Right-click the tray icon for:
 
 - **Start with Windows** — toggle auto-launch on login
 - **Hide window while it moves** — on by default. Covers two things that are
@@ -74,6 +74,10 @@ Run `WindowMover.exe`. It appears in the system tray. Right-click the tray icon 
 - **Exit**
 
 Only one instance runs at a time.
+
+The executable used to be called `WindowMoverFinal.exe`. If you had **Start with
+Windows** turned on under that name, turn it off and on again once - the old
+registry entry still points at the old filename.
 
 ## How it works
 
@@ -100,17 +104,32 @@ focus, swallows no clicks and changes nothing about your windows.
 
 Some apps resize themselves the moment they detect a DPI change between
 differently-scaled monitors, overriding the size WindowMover just set.
-`DpiCorrectionScheduler` watches for that reactively (via
+`MoveSettleWatcher` watches for that reactively (via
 `EVENT_OBJECT_LOCATIONCHANGE`, not polling) and corrects it back.
 
 ## Project layout
 
 | Project | What it is |
 |---|---|
-| `WindowMoverFinal` | The Windows Forms app: P/Invoke, the mouse hook, the tray icon |
+| `WindowMover.App` | The Windows Forms app: P/Invoke, the mouse hook, the tray icon |
 | `WindowMover.Core` | The logic that decides which window moves and where it lands |
 | `WindowMover.Tests` | xUnit tests for the core - pure logic, instant, silent |
 | `WindowMover.LiveTests` | xUnit tests that move real windows on the real desktop |
+
+Inside `WindowMover.App`, one folder per job:
+
+| Folder | What is in it |
+|---|---|
+| `Input/` | `MouseGestureHook` - the low-level mouse hook, turning button events into a move |
+| `Moving/` | `MovableWindowCheck` (may this window be moved), `MoveTargetBounds` (where it lands), `WindowMove` (the move itself), `WindowTransparency` (hiding it on the way), `MoveSettleWatcher` (what happens after, until it stops changing) |
+| `Feedback/` | `MoveIndicator` - the outline drawn where the window landed |
+| `Tray/` | `SystemTrayIcon`, `UserSettings`, `StartupRegistry` |
+| `Win32/` | `NativeMethods` - every P/Invoke in the app |
+| `Diagnostics/` | `DebugLog` - written to `%TEMP%\windowmover-debug.log` |
+
+A move reads top to bottom: `MouseGestureHook` sees the gesture and asks
+`ButtonComboTracker` (in `WindowMover.Core`) what it means, `WindowMove` carries it
+out, and `MoveSettleWatcher` watches what the app does about it afterwards.
 
 ## Building and testing
 
@@ -145,10 +164,10 @@ VS Code is not installed.
 To produce the executable:
 
 ```
-dotnet build WindowMoverFinal/WindowMoverFinal.csproj -c Release
+dotnet build WindowMover.App/WindowMover.App.csproj -c Release
 ```
 
-It lands in `WindowMoverFinal/bin/Release/net10.0-windows/`.
+It lands in `WindowMover.App/bin/Release/net10.0-windows/`.
 
 ## License
 

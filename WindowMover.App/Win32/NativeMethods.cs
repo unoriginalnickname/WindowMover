@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 // The raw Win32 surface: P/Invoke declarations, the structs they marshal, and the
 // constants those calls need. Nothing here knows what a "move" or a "combo" is -
-// see WindowMoveActions and MouseHook for that.
+// see Moving/ and Input/ for that.
 internal static class NativeMethods
 {
     // Windows Hook Constants
@@ -36,7 +36,7 @@ internal static class NativeMethods
     // move/resize border, as distinct from a program calling SetWindowPos on it.
     public const uint EVENT_SYSTEM_MOVESIZESTART = 0x000A;
     // Fires the instant a window's bounds actually change, for any reason (ours or the
-    // app's own) - lets DpiCorrectionScheduler react immediately instead of polling on a guess.
+    // app's own) - lets MoveSettleWatcher react immediately instead of polling on a guess.
     public const uint EVENT_OBJECT_LOCATIONCHANGE = 0x800B;
     public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
     public const int OBJID_WINDOW = 0;

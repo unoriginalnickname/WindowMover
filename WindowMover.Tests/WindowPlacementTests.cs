@@ -229,8 +229,8 @@ public class WindowPlacementTests
         // See ISSUES.md's resolved DPI-sizing history: DetermineTargetSize used to also bet-
         // inflate by a DPI ratio, betting a per-monitor-DPI-aware app would shrink it back on
         // its own. That's retired - self-resizing apps are now handled by reactively
-        // correcting whatever they change it to (Program.cs), not by pre-guessing a value for
-        // them, so this is just ProportionalSize clamped to the target monitor.
+        // correcting whatever they change it to (the app's MoveSettleWatcher), not by pre-guessing
+        // a value for them, so this is just ProportionalSize clamped to the target monitor.
         var source = new Rectangle(0, 0, 2560, 1440); // 1440p working area
         var target = new Rectangle(0, 0, 1920, 1080); // 1080p working area
 
