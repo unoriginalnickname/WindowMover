@@ -22,9 +22,18 @@ internal static class DebugLog
         try
         {
             NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+            if (processNames.TryGetValue(pid, out string? cached)) return cached;
+
             using var process = Process.GetProcessById((int)pid);
-            return process.ProcessName;
+            return processNames[pid] = process.ProcessName;
         }
         catch { return "unknown"; }
     }
+
+    // Process.GetProcessById opens the process and reads its info - tens of microseconds at
+    // best, and some of these lookups now happen inside the mouse hook callback, which runs
+    // on the critical input path for every gesture. Windows silently unhooks a low-level
+    // hook whose callback is too slow, so the lookup is done once per process and reused.
+    // A recycled PID can only ever mislabel a log line, which is worth that trade.
+    private static readonly Dictionary<uint, string> processNames = new();
 }

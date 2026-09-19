@@ -49,10 +49,22 @@ internal static class WindowMoveActions
     }
 
     // The window to hand to the combo tracker: the given one if we're allowed to move it,
-    // otherwise nothing
+    // otherwise nothing. A refusal here is invisible to the user - the gesture simply does
+    // nothing later - so it gets logged: "nothing happened at all" needs to be as traceable
+    // as a move that happened and went wrong.
     public static IntPtr WindowToCapture(IntPtr hwnd)
     {
-        return IsSafeMovableWindow(hwnd) ? hwnd : IntPtr.Zero;
+        if (hwnd == IntPtr.Zero)
+        {
+            DebugLog.Write("Capture: nothing captured - no foreground window");
+            return IntPtr.Zero;
+        }
+
+        WindowSnapshot snapshot = Describe(hwnd);
+        if (WindowMoveFilter.IsSafeToMove(snapshot)) return hwnd;
+
+        DebugLog.Write($"Capture refused [{DebugLog.DescribeWindowProcess(hwnd)}]: hwnd={hwnd}, {snapshot}");
+        return IntPtr.Zero;
     }
 
     // Reads out everything the filter needs to know about a window
@@ -78,7 +90,11 @@ internal static class WindowMoveActions
     // Moves a window to a specific screen, centered
     public static void MoveWindowToScreen(IntPtr hwnd, Screen target)
     {
-        if (!IsSafeMovableWindow(hwnd)) return;
+        if (!IsSafeMovableWindow(hwnd))
+        {
+            DebugLog.Write($"Move refused [{DebugLog.DescribeWindowProcess(hwnd)}]: hwnd={hwnd} is no longer safe to move at click time");
+            return;
+        }
 
         // Must happen before the IsZoomed check below, not just before DetermineWindowBounds -
         // see ISSUES.md #3. A window can become maximized (by the user, independent of this
@@ -123,7 +139,7 @@ internal static class WindowMoveActions
             // by DpiCorrectionScheduler below instead.
             bool hidden = HideDuringDpiCorrection;
             if (hidden) ShowWindow(hwnd, SW_HIDE);
-            SetWindowPos(hwnd, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, SWP_NOZORDER | SWP_NOACTIVATE);
+            ReportMoveOutcome(hwnd, SetWindowPos(hwnd, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, SWP_NOZORDER | SWP_NOACTIVATE), $"SetWindowPos to {bounds}");
             // A hidden window can't be raised or focused, and it is revealed later, once the
             // correction ends - so the scheduler does the bring-to-front at that point
             // instead, from the single place that un-hides it.
@@ -132,9 +148,9 @@ internal static class WindowMoveActions
         }
         else
         {
-            SetWindowPos(hwnd, IntPtr.Zero,
+            ReportMoveOutcome(hwnd, SetWindowPos(hwnd, IntPtr.Zero,
                 bounds.X, bounds.Y, bounds.Width, bounds.Height,
-                SWP_NOZORDER | SWP_NOACTIVATE);
+                SWP_NOZORDER | SWP_NOACTIVATE), $"SetWindowPos to {bounds}");
             BringToFrontAfterClickLands(hwnd);
         }
     }
@@ -152,6 +168,7 @@ internal static class WindowMoveActions
 
         if (primary is null || !GetWindowPlacement(hwnd, ref placement))
         {
+            DebugLog.Write($"Move [{DebugLog.DescribeWindowProcess(hwnd)}]: GetWindowPlacement unavailable, falling back to restore/move/maximize");
             MoveMaximizedWindowTheSlowWay(hwnd, target);
             return;
         }
@@ -175,6 +192,7 @@ internal static class WindowMoveActions
 
         if (!SetWindowPlacement(hwnd, ref placement))
         {
+            ReportMoveOutcome(hwnd, false, $"SetWindowPlacement to {workspaceRect}");
             MoveMaximizedWindowTheSlowWay(hwnd, target);
             return;
         }
@@ -275,9 +293,23 @@ internal static class WindowMoveActions
         var layout = new MonitorLayout(Array.ConvertAll(screens, s => s.Bounds));
 
         int current = layout.IndexOfMonitorShowing(ToRectangle(r));
-        if (!layout.TryGetNextMonitorIndex(current, out int next)) return; // needs at least 2 monitors
+        if (!layout.TryGetNextMonitorIndex(current, out int next))
+        {
+            DebugLog.Write($"Move refused [{DebugLog.DescribeWindowProcess(hwnd)}]: no next monitor (current index {current}, {screens.Length} screen(s))");
+            return; // needs at least 2 monitors
+        }
 
         MoveWindowToScreen(hwnd, screens[next]);
+    }
+
+    // A move that silently does nothing looks, from the outside, exactly like a gesture that
+    // never fired at all - and the two have completely different causes. So a move that
+    // Windows refuses says so, with the error code: access denied here means UIPI (the target
+    // window belongs to a higher-integrity process than this one) and no retry will help.
+    private static void ReportMoveOutcome(IntPtr hwnd, bool applied, string what)
+    {
+        if (applied) return;
+        DebugLog.Write($"Move FAILED [{DebugLog.DescribeWindowProcess(hwnd)}]: {what} returned false, win32 error {Marshal.GetLastWin32Error()}");
     }
 
     // Defers BringToFront by one short beat - see BringToFrontDelayMs for why it can't just

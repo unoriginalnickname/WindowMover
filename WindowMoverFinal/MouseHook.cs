@@ -21,6 +21,9 @@ internal static class MouseHook
     {
         hookProc = HookCallback;
         hookId = SetWindowsHookEx(WH_MOUSE_LL, hookProc, IntPtr.Zero, 0);
+        DebugLog.Write(hookId == IntPtr.Zero
+            ? $"Mouse hook FAILED to install: win32 error {Marshal.GetLastWin32Error()}"
+            : $"Mouse hook installed: id={hookId}");
     }
 
     public static void Uninstall()
@@ -42,8 +45,13 @@ internal static class MouseHook
                 // Grab the focused window now - by the time the user middle-clicks,
                 // something else may have taken focus
                 IntPtr fg = GetForegroundWindow();
-                if (xButton == XBUTTON1) buttons.SideButtonDown(SideButton.Mouse4, WindowMoveActions.WindowToCapture(fg));
-                else if (xButton == XBUTTON2) buttons.SideButtonDown(SideButton.Mouse5, WindowMoveActions.WindowToCapture(fg));
+                IntPtr captured = WindowMoveActions.WindowToCapture(fg);
+                // Logged on every side-button press, not only the ones that end in a move:
+                // when a gesture does nothing at all, this line is what says whether the hook
+                // even saw the press, and which window it grabbed.
+                DebugLog.Write($"Side button {(xButton == XBUTTON1 ? "Mouse4" : "Mouse5")} down: foreground={fg} [{DebugLog.DescribeWindowProcess(fg)}], captured={captured}");
+                if (xButton == XBUTTON1) buttons.SideButtonDown(SideButton.Mouse4, captured);
+                else if (xButton == XBUTTON2) buttons.SideButtonDown(SideButton.Mouse5, captured);
             }
             // Handle extra mouse button release
             else if (wParam == (IntPtr)WM_XBUTTONUP)
@@ -55,6 +63,7 @@ internal static class MouseHook
             else if (wParam == (IntPtr)WM_MBUTTONDOWN)
             {
                 var request = buttons.MiddleButtonDown();
+                DebugLog.Write($"Middle click: command={request.Command}, window={request.Window}, Mouse4 held={buttons.IsHeld(SideButton.Mouse4)}, Mouse5 held={buttons.IsHeld(SideButton.Mouse5)}");
                 if (request.Command == MoveCommand.CursorMonitor)
                 {
                     if (GetCursorPos(out POINT p))
