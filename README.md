@@ -1,5 +1,10 @@
 # Window Mover
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/pull-window-dark.svg">
+  <img src="docs/pull-window-light.svg" alt="Two monitors. A blue window on the left monitor is pulled to the right monitor by clicking its taskbar icon, holding Mouse4 and middle-clicking. Then the left monitor is turned off and the same thing pulls a red window out of it.">
+</picture>
+
 A Windows system tray utility that moves windows between monitors using the side
 buttons on your mouse.
 
@@ -9,18 +14,14 @@ WindowMover does two things, both entirely from the mouse:
 
 1. **Pull a window to where you are.** A window is on a monitor you've turned
    off, or you have no keyboard within reach. On the monitor that's on, click
-   the window's taskbar icon, then hold Mouse4 and middle-click. The window comes to the monitor your cursor is on.
+   the window's taskbar icon, then hold Mouse4 and middle-click. The window
+   comes to the monitor your cursor is on.
 2. **Cycle a window around the monitors.** Hold Mouse5 and middle-click, and
    the window hops to the next monitor.
 
 Both move the active window - the one that has focus when you press the side
 button, not the one under the cursor. Clicking a window's taskbar icon makes it
 active without handing focus to anything else on screen.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/pull-window-dark.svg">
-  <img src="docs/pull-window-light.svg" alt="Two monitors. A blue window on the left monitor is pulled to the right monitor by clicking its taskbar icon, holding Mouse4 and middle-clicking. Then the left monitor is turned off and the same thing pulls a red window out of it.">
-</picture>
 
 ## Controls
 
