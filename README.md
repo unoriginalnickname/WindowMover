@@ -32,10 +32,17 @@ elements are ignored.
 
 ## Running it
 
-Download `WindowMover.App.exe` from
-[Releases](https://github.com/unoriginalnickname/WindowMover/releases) and run it.
-Nothing else needs to be installed. It appears in the system tray, and only one
-copy runs at a time.
+Download one of the two exes from
+[Releases](https://github.com/unoriginalnickname/WindowMover/releases) and run it:
+
+- **`WindowMover.exe`** (about 200 KB) needs the
+  [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+  If it is missing, Windows says so when you start the exe and links to the
+  download.
+- **`WindowMover-standalone.exe`** (about 50 MB) has the runtime built in and
+  needs nothing installed.
+
+It appears in the system tray, and only one copy runs at a time.
 
 The exe is not signed, so Windows SmartScreen may warn about it the first time.
 Choose **More info**, then **Run anyway**.
@@ -125,13 +132,15 @@ which is why one of these tests uses VS Code itself. Live tests are skipped
 automatically on a single-monitor machine, and the VS Code one is skipped when
 VS Code is not installed.
 
-To produce the single-file exe that goes on the Releases page:
+To produce the two exes that go on the Releases page:
 
 ```
-dotnet publish WindowMover.App/WindowMover.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+dotnet publish WindowMover.App/WindowMover.App.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o publish/small
+dotnet publish WindowMover.App/WindowMover.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o publish/standalone
 ```
 
-It lands in `publish/`.
+Both come out as `WindowMover.App.exe`, in `publish/small/` and
+`publish/standalone/`; they are renamed when uploaded.
 
 ## License
 
