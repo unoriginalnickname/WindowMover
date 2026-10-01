@@ -9,14 +9,17 @@ WindowMover does two things, both entirely from the mouse:
 
 1. **Pull a window to where you are.** A window is on a monitor you've turned
    off, or you have no keyboard within reach. On the monitor that's on, click
-   the window's taskbar icon so it becomes the active window, then hold Mouse4
-   and middle-click. The window comes to the monitor your cursor is on.
+   the window's taskbar icon, then hold Mouse4 and middle-click. The window comes to the monitor your cursor is on.
 2. **Cycle a window around the monitors.** Hold Mouse5 and middle-click, and
    the window hops to the next monitor.
 
+Both move the active window - the one that has focus when you press the side
+button, not the one under the cursor. Clicking a window's taskbar icon makes it
+active without handing focus to anything else on screen.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/pull-window-dark.svg">
-  <img src="docs/pull-window-light.svg" alt="Two monitors. A blue window on the left monitor is pulled to the right monitor by holding Mouse4 and middle-clicking its taskbar icon. Then the left monitor is turned off and the same thing pulls a red window out of it.">
+  <img src="docs/pull-window-light.svg" alt="Two monitors. A blue window on the left monitor is pulled to the right monitor by clicking its taskbar icon, holding Mouse4 and middle-clicking. Then the left monitor is turned off and the same thing pulls a red window out of it.">
 </picture>
 
 ## Controls
@@ -28,36 +31,23 @@ WindowMover does two things, both entirely from the mouse:
 | Mouse4 + Mouse5 + middle click | Same as Mouse4 alone - the monitor your cursor is on |
 
 Mouse4 is the back thumb button and Mouse5 the forward one, on most mice.
-Mouse4 always wins when both are held - Mouse5 only gets its own meaning
-(cycle to the next monitor) when held on its own.
-
-The taskbar, desktop icons, tool windows and very small UI elements are skipped.
-
-**Where to put the cursor:** WindowMover captures whichever window is currently
-active the instant you press Mouse4/Mouse5, not whatever's under the cursor.
-If your cursor is resting over a *different* window at that moment, that
-click can activate it first, and WindowMover ends up moving that window
-instead of the one you meant. Hovering over the target window's **taskbar
-icon** when you press the side button avoids this - clicking there doesn't
-hand focus to some other on-screen window.
+The taskbar, desktop icons, tool windows and very small UI elements are never
+moved.
 
 ## Installation
 
 Run `WindowMover.App.exe`. It appears in the system tray. Right-click the tray icon for:
 
 - **Start with Windows** — toggle auto-launch on login
-- **Hide window while it moves** — on by default. Covers two things that are
-  ugly to watch: some apps briefly resize themselves wrong right after a
-  monitor-crossing move before WindowMover corrects them, and a maximized move
-  has to restore, reposition and re-maximize the window, each of which Windows
-  animates. The window is hidden until it stops moving, then shown where it
-  landed. It is hidden by making it fully transparent, not by
-  `ShowWindow(SW_HIDE)`: as far as Windows is concerned the window never stops
-  being visible, so it keeps its taskbar button, its place in the Z-order and
-  its focus. Turn it off if you would rather this app never touched how your
-  windows are drawn and took the brief flash instead.
-- **Show where the window landed** — on by default. The outline-and-number
-  flash described above. Turn it off for a completely silent move.
+- **Hide window while it moves** — on by default. The window is made fully
+  transparent until it stops moving, which hides the resizing and maximize
+  animations described under How it works. It is not hidden with
+  `ShowWindow(SW_HIDE)`, so it keeps its taskbar button, its place in the
+  Z-order and its focus. Turn it off if you would rather this app never touched
+  how your windows are drawn.
+- **Show where the window landed** — on by default. A brief outline at the
+  window's new position with the monitor's number in it, fading out over about
+  half a second. Turn it off for a silent move.
 - **About** — controls and current settings
 - **Exit**
 
@@ -79,16 +69,12 @@ and revealed once it stops moving - which is watched for, not waited out on a
 guessed timer, because the maximize animation runs on after the call that
 started it returns.
 
-When a window lands, WindowMover draws a brief outline at its new position with
-the monitor's number in it, fading out over about half a second. That is how a
-move announces itself.
-
 It does not bring the moved window to the front, because Windows will not
 reliably allow it: a background process is refused the foreground while you are
 using another app, and is refused raising a window past the active one as well.
-That was built, measured and removed - see ISSUES.md #6. The indicator is this
-app's own window, so it is allowed to draw on top of anything, and it takes no
-focus, swallows no clicks and changes nothing about your windows.
+That was built, measured and removed - see ISSUES.md #6. The landing outline is
+this app's own window, so it is allowed to draw on top of anything, and it
+takes no focus, swallows no clicks and changes nothing about your windows.
 
 Some apps resize themselves the moment they detect a DPI change between
 differently-scaled monitors, overriding the size WindowMover just set.
@@ -126,20 +112,16 @@ Windows.
 
 ```
 dotnet build
-dotnet test
-```
-
-`dotnet test` runs both suites. `WindowMover.Tests` is pure logic - instant and
-silent. `WindowMover.LiveTests` drives the real move code against real windows:
-it moves windows between your monitors, takes the foreground, and opens a
-throwaway VS Code window (with its own temporary profile and extensions
-directory, so it never touches the editor you have open). That one is worth
-running deliberately rather than while you are working:
-
-```
-dotnet test WindowMover.Tests/WindowMover.Tests.csproj      # quiet, always safe
+dotnet test                                                     # both suites
+dotnet test WindowMover.Tests/WindowMover.Tests.csproj          # pure logic, quiet, always safe
 dotnet test WindowMover.LiveTests/WindowMover.LiveTests.csproj
 ```
+
+`WindowMover.LiveTests` drives the real move code against real windows:
+it moves windows between your monitors, takes the foreground, and opens a
+throwaway VS Code window (with its own temporary profile and extensions
+directory, so it never touches the editor you have open). Run it
+deliberately, not while you are working.
 
 The live suite exists because the unit tests cannot see whether Windows
 actually honoured a move. A maximized VS Code window silently refused to move
