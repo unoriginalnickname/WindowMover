@@ -1,4 +1,4 @@
-# Window Mover
+# WindowMover
 
 A Windows system tray utility that moves windows between monitors using only the
 mouse.
@@ -10,71 +10,66 @@ mouse.
 
 ## What it does
 
-For a window on a monitor you've turned off, or when no keyboard is in reach. It
-has two actions:
+Use it when a window is on a monitor you've turned off, or when no keyboard is in
+reach. It has two actions:
 
 1. **Pull** - the window comes to the monitor your cursor is on.
-2. **Cycle** - the window goes to the next monitor from the one it is on.
+2. **Cycle** - the window goes to the next monitor from the one it is on, in the
+   order Windows lists them, wrapping back to the first after the last.
 
 ## Controls
 
 | Button | Role |
 |---|---|
 | Left-click | Puts a window in focus (for example, click its taskbar icon) |
-| Hold Mouse4 | Selects the pull action: to the monitor the cursor is on |
-| Hold Mouse5 | Selects the cycle action: to the next monitor from the window's |
+| Hold Mouse4 | Selects pull |
+| Hold Mouse5 | Selects cycle |
 | Middle-click | Activates the selected action on the focused window |
 
-Mouse4 is the back thumb button and Mouse5 the forward one, on most mice.
-The taskbar, desktop icons, tool windows and very small UI elements are never
-moved.
+Mouse4 is the back thumb button and Mouse5 the forward one, on most mice. If both
+are held, pull wins. The taskbar, desktop icons, tool windows and very small UI
+elements are ignored.
 
-## Installation
+## Running it
 
-Run `WindowMover.App.exe`. It appears in the system tray. Right-click the tray icon for:
+There is no download yet. Build it (see Building and testing), then run
+`WindowMover.App.exe`. It appears in the system tray, and only one copy runs at a
+time.
 
-- **Start with Windows** — toggle auto-launch on login
-- **Hide window while it moves** — on by default. The window is made fully
-  transparent until it stops moving, which hides the resizing and maximize
-  animations described under How it works. It is not hidden with
-  `ShowWindow(SW_HIDE)`, so it keeps its taskbar button, its place in the
-  Z-order and its focus. Turn it off if you would rather this app never touched
-  how your windows are drawn.
-- **Show where the window landed** — on by default. A brief outline at the
-  window's new position with the monitor's number in it, fading out over about
-  half a second. Turn it off for a silent move.
-- **About** — controls and current settings
+## Tray menu
+
+- **Start with Windows** - start it when you log in.
+- **Hide window while it moves** - on by default. The window turns invisible
+  until it has stopped moving, so you don't see it resize and re-maximize on the
+  way. Turn it off if you'd rather WindowMover never changed how your windows
+  are drawn.
+- **Show where the window landed** - on by default. A brief outline with the
+  monitor's number appears where the window landed, fading out over about half a
+  second. Turn it off for a silent move.
+- **About** - shows the controls.
 - **Exit**
-
-Only one instance runs at a time.
-
-The executable used to be called `WindowMoverFinal.exe`. If you had **Start with
-Windows** turned on under that name, turn it off and on again once - the old
-registry entry still points at the old filename.
 
 ## How it works
 
-A low-level mouse hook (`WH_MOUSE_LL`) intercepts Mouse4 and Mouse5 events
-system-wide. When a side button is held and the middle button is pressed, the
-window moves to the target monitor. A maximized window cannot simply be handed
-new bounds - it ignores them - so it is restored onto the target monitor's
-working area and maximized again there. Those are three visible state changes
-and Windows animates each one, so the window is hidden for the whole sequence
-and revealed once it stops moving - which is watched for, not waited out on a
-guessed timer, because the maximize animation runs on after the call that
-started it returns.
+A low-level mouse hook (`WH_MOUSE_LL`) sees every mouse button press system-wide.
+When a side button goes down, WindowMover notes which window has focus. When the
+middle button is clicked, it checks which side button is still held: Mouse4 means
+pull and Mouse5 means cycle. If both side buttons were released, nothing moves.
 
-It does not bring the moved window to the front, because Windows will not
-reliably allow it: a background process is refused the foreground while you are
-using another app, and is refused raising a window past the active one as well.
-That was built, measured and removed - see ISSUES.md #6. The landing outline is
-this app's own window, so it is allowed to draw on top of anything, and it
-takes no focus, swallows no clicks and changes nothing about your windows.
+A maximized window ignores new bounds, so it is restored, moved and maximized
+again, and Windows animates each step. Some apps resize themselves when they land
+on a monitor with different scaling, overriding the size WindowMover just set;
+`MoveSettleWatcher` watches for that (via `EVENT_OBJECT_LOCATIONCHANGE`, not
+polling) and corrects it back. In both cases the window is made fully transparent
+until it has stopped changing. That moment is watched for, not guessed with a
+timer, because the maximize animation keeps running after the call that started
+it returns. Transparency is used instead of `ShowWindow(SW_HIDE)` so the window
+keeps its taskbar button, its place in the Z-order and its focus.
 
-Some apps resize themselves the moment they detect a DPI change between
-differently-scaled monitors, overriding the size WindowMover just set.
-`MoveSettleWatcher` watches for that reactively (via
-`EVENT_OBJECT_LOCATIONCHANGE`, not polling) and corrects it back.
+It does not bring the moved window to the front. Windows refuses that to a
+background app while you're using another one (see ISSUES.md #6). The landing
+outline is WindowMover's own window, so it can draw on top of anything without
+taking focus or catching clicks.
 
 ## Project layout
 
@@ -120,7 +115,7 @@ deliberately, not while you are working.
 
 The live suite exists because the unit tests cannot see whether Windows
 actually honoured a move. A maximized VS Code window silently refused to move
-for as long as the app had existed, and no unit test could have caught it - a
+from the start, and no unit test could have caught it - a
 plain test window, Notepad and Edge all move fine under the same broken code,
 which is why one of these tests uses VS Code itself. Live tests are skipped
 automatically on a single-monitor machine, and the VS Code one is skipped when
