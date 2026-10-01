@@ -21,11 +21,13 @@ no built-in pull.
 What exists instead, and where they fall short:
 
 - **DisplayFusion** — its Mouse Cursor Functions move the cursor, not windows. It
-  does cycle a window to the next monitor with a middle-click on the title bar,
-  which needs the title bar to be on a monitor you can see. Its documentation
-  describes no setting that pulls an existing window to the cursor's monitor. The
-  closest match is a gallery script that sets a window's position to the cursor,
-  which you have to install as a function and which does not choose the monitor.
+  does move windows by mouse: a middle-click on a title bar, or on a button in its
+  own multi-monitor taskbars, sends the window to the next or previous monitor.
+  With two monitors that is the same result as the pull. With three or more it
+  cycles, and the documentation pages on windows and taskbars describe no way to
+  pick the monitor your cursor is on. A gallery script sets a window's position
+  to the cursor, but you install it as a function and it does not choose the
+  monitor.
 - **PowerToys** — an open, related request,
   [#22165 "Gather Windows"](https://github.com/microsoft/PowerToys/issues/22165)
   (open since November 2022), framed around remote-desktop scenarios rather than
