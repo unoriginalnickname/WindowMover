@@ -378,19 +378,22 @@
     </g>
     <rect x="176" y="98" width="92" height="58" rx="3" fill="#6b454a"/><rect x="176" y="98" width="92" height="10" rx="3" fill="#5b3a3e"/><rect x="176" y="104" width="92" height="4" fill="#5b3a3e"/><rect x="184" y="115" width="55" height="4" rx="2" fill="#ffffff" opacity="0.22"/><rect x="184" y="124" width="65" height="4" rx="2" fill="#ffffff" opacity="0.22"/><rect x="184" y="133" width="36" height="4" rx="2" fill="#ffffff" opacity="0.22"/><rect x="176.5" y="98.5" width="91" height="57" rx="2.5" fill="none" stroke="#9aa5b1" stroke-opacity="0.35"/>
 
-    <!-- taskbars. The blue window's icon is the blue one; the red window's is the red one, on monitor 2. -->
+    <!-- taskbars, the same buttons on both (see TASKBAR_SPEC). The blue icon is the blue window's, the red one the red window's. -->
     <rect x="40" y="160" width="240" height="20" fill="#1c2128" clip-path="url(#s1)"/>
     <rect x="294" y="160" width="240" height="20" fill="#1c2128" clip-path="url(#s2)"/>
     <rect class="sel" x="306" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <rect class="selr" x="328" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <rect class="xact" x="350" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
+    <rect class="sel" x="52" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
+    <rect class="selr" x="74" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
+    <rect class="xact" x="96" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <g>
-      <rect x="78" y="163" width="16" height="12" rx="2" fill="#6d8794"/><rect x="81" y="166" width="10" height="1.5" fill="#1c2128" opacity="0.55"/><rect x="81" y="169.5" width="6" height="1.5" fill="#1c2128" opacity="0.55"/>
-      <rect x="82" y="177.2" width="8" height="1.2" rx="0.6" fill="#8b949e" opacity="0.7"/>
-      <rect x="100" y="163" width="16" height="12" rx="2" fill="#8c7d99"/><circle cx="108" cy="169" r="3" fill="none" stroke="#1c2128" stroke-width="1.5" opacity="0.55"/>
-      <rect x="122" y="163" width="16" height="12" rx="2" fill="#95916c"/><polygon points="127,172.5 130,165.5 133,172.5" fill="#1c2128" opacity="0.55"/>
-      <rect x="126" y="177.2" width="8" height="1.2" rx="0.6" fill="#8b949e" opacity="0.7"/>
-      <rect x="144" y="163" width="16" height="12" rx="2" fill="#7b8794"/><rect x="148" y="166" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="148" y="170" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="154" y="166" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="154" y="170" width="3" height="3" fill="#1c2128" opacity="0.55"/>
+      <rect x="78" y="163" width="16" height="12" rx="2" fill="#a8686c"/><rect x="81" y="166" width="10" height="1.5" fill="#1c2128" opacity="0.55"/><rect x="81" y="169.5" width="6" height="1.5" fill="#1c2128" opacity="0.55"/>
+      <rect x="100" y="163" width="16" height="12" rx="2" fill="#6d8794"/><rect x="104" y="166" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="104" y="170" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="110" y="166" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="110" y="170" width="3" height="3" fill="#1c2128" opacity="0.55"/>
+      <rect x="104" y="177.2" width="8" height="1.2" rx="0.6" fill="#8b949e" opacity="0.7"/>
+      <rect x="122" y="163" width="16" height="12" rx="2" fill="#8c7d99"/><circle cx="130" cy="169" r="3" fill="none" stroke="#1c2128" stroke-width="1.5" opacity="0.55"/>
+      <rect x="144" y="163" width="16" height="12" rx="2" fill="#7b8794"/><polygon points="149,172.5 152,165.5 155,172.5" fill="#1c2128" opacity="0.55"/>
+      <rect x="148" y="177.2" width="8" height="1.2" rx="0.6" fill="#8b949e" opacity="0.7"/>
       <rect x="332" y="163" width="16" height="12" rx="2" fill="#a8686c"/><rect x="335" y="166" width="10" height="1.5" fill="#1c2128" opacity="0.55"/><rect x="335" y="169.5" width="6" height="1.5" fill="#1c2128" opacity="0.55"/>
       <rect x="354" y="163" width="16" height="12" rx="2" fill="#6d8794"/><rect x="358" y="166" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="358" y="170" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="364" y="166" width="3" height="3" fill="#1c2128" opacity="0.55"/><rect x="364" y="170" width="3" height="3" fill="#1c2128" opacity="0.55"/>
       <rect x="358" y="177.2" width="8" height="1.2" rx="0.6" fill="#8b949e" opacity="0.7"/>
@@ -407,6 +410,13 @@
     <rect class="selr" x="335" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
     <rect class="xact" x="354.5" y="163.5" width="15" height="11" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1"/>
     <rect class="xact" x="357" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
+    <rect class="sel" x="56.5" y="163.5" width="15" height="11" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1"/>
+    <rect class="sel" x="59" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
+    <rect class="selr" x="78" y="163" width="16" height="12" rx="2" fill="#e5484d"/>
+    <rect class="selr" x="78.5" y="163.5" width="15" height="11" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1"/>
+    <rect class="selr" x="81" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
+    <rect class="xact" x="100.5" y="163.5" width="15" height="11" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1"/>
+    <rect class="xact" x="103" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
 
     <!-- monitor 1 turned off: a dark screen over everything on it, and the rest of the screen's edge line -->
     <rect class="off1" x="40" y="30" width="240" height="150" fill="#05070a"/>

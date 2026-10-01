@@ -174,8 +174,11 @@ def focused(x, y, w, h):
             f'<rect x="{x+0.75}" y="{y+0.75}" width="{w-1.5}" height="{h-1.5}" rx="2.5" fill="none" stroke="#ffffff" stroke-width="1.5"/>')
 
 
-ICONS_M1 = icons((78, 100, 122, 144), ((TEAL, "bars"), (MAUVE, "dot"), (OLIVE, "tri"), (SLATE, "grid")), {0, 2})
-ICONS_M2 = icons((398 + SH, 420 + SH, 442 + SH, 464 + SH), ((DUSTY_RED, "bars"), (TEAL, "grid"), (MAUVE, "dot"), (SLATE, "tri")), {1, 3})
+# The story needs "show taskbar buttons on all taskbars" (the blue window's icon is clicked on the other
+# monitor), so both taskbars carry the same buttons in the same order, and light up together.
+TASKBAR_SPEC = ((DUSTY_RED, "bars"), (TEAL, "grid"), (MAUVE, "dot"), (SLATE, "tri"))
+ICONS_M1 = icons((78, 100, 122, 144), TASKBAR_SPEC, {1, 3})
+ICONS_M2 = icons((398 + SH, 420 + SH, 442 + SH, 464 + SH), TASKBAR_SPEC, {1, 3})
 
 M1_BEHIND = win(52, 42, 96, 62, "#3f5260", "#364856")        # monitor 1: behind the blue window
 M1_RED = win(176, 98, 92, 58, "#6b454a", "#5b3a3e")          # monitor 1: the red window, stacked in front of the blue one
@@ -328,12 +331,15 @@ def build(PAGE, LABEL, STAND, OUTLINE, OUTLINE_W, TASKBAR, OFF_SCREEN):
     </g>
     {M1_RED}
 
-    <!-- taskbars. The blue window's icon is the blue one; the red window's is the red one, on monitor 2. -->
+    <!-- taskbars, the same buttons on both (see TASKBAR_SPEC). The blue icon is the blue window's, the red one the red window's. -->
     <rect x="40" y="160" width="240" height="20" fill="{TASKBAR}" clip-path="url(#s1)"/>
     <rect x="{40 + DX}" y="160" width="240" height="20" fill="{TASKBAR}" clip-path="url(#s2)"/>
     <rect class="sel" x="{372 + SH}" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <rect class="selr" x="{394 + SH}" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <rect class="xact" x="{416 + SH}" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
+    <rect class="sel" x="52" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
+    <rect class="selr" x="74" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
+    <rect class="xact" x="96" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <g>
       {ICONS_M1}
       {ICONS_M2}
@@ -347,6 +353,13 @@ def build(PAGE, LABEL, STAND, OUTLINE, OUTLINE_W, TASKBAR, OFF_SCREEN):
     <rect class="selr" x="{401 + SH}" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
     <rect class="xact" x="{420.5 + SH}" y="163.5" width="15" height="11" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1"/>
     <rect class="xact" x="{423 + SH}" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
+    <rect class="sel" x="56.5" y="163.5" width="15" height="11" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1"/>
+    <rect class="sel" x="59" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
+    <rect class="selr" x="78" y="163" width="16" height="12" rx="2" fill="#e5484d"/>
+    <rect class="selr" x="78.5" y="163.5" width="15" height="11" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1"/>
+    <rect class="selr" x="81" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
+    <rect class="xact" x="100.5" y="163.5" width="15" height="11" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1"/>
+    <rect class="xact" x="103" y="177.2" width="10" height="1.6" rx="0.8" fill="#ffffff"/>
 
     <!-- monitor 1 turned off: a dark screen over everything on it, and the rest of the screen's edge line -->
     <rect class="off1" x="40" y="30" width="240" height="150" fill="{OFF_SCREEN}"/>
