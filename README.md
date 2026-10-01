@@ -1,18 +1,17 @@
 # Window Mover
 
+A Windows system tray utility that moves windows between monitors using only the
+mouse.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/pull-window-dark.svg">
   <img src="docs/pull-window-light.svg" alt="Two monitors. A blue window on the left monitor is pulled to the right monitor by clicking its taskbar icon, holding Mouse4 and middle-clicking. Then the left monitor is turned off and the same thing pulls a red window out of it.">
 </picture>
 
-A Windows system tray utility that moves windows between monitors using the side
-buttons on your mouse.
-
 ## What it does
 
-WindowMover moves windows between monitors entirely from the mouse - for a
-window on a monitor you've turned off, or when no keyboard is in reach. It has
-two actions:
+For a window on a monitor you've turned off, or when no keyboard is in reach. It
+has two actions:
 
 1. **Pull** - the window comes to the monitor your cursor is on.
 2. **Cycle** - the window goes to the next monitor from the one it is on.
