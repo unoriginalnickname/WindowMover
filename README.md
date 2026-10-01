@@ -5,11 +5,18 @@ buttons on your mouse.
 
 ## Why
 
+WindowMover does two things, both entirely from the mouse:
+
+1. **Pull a window to where you are.** A window is on a monitor you've turned
+   off, or you have no keyboard within reach. Put the cursor on the monitor
+   that's on, hover the window's taskbar icon, hold Mouse4, and middle-click.
+   The window comes to the monitor your cursor is on.
+2. **Cycle a window around the monitors.** Hold Mouse5 and middle-click, and
+   the window hops to the next monitor.
+
 Windows can already cycle a focused window to the adjacent monitor with
-`Win+Shift+Arrow`, but that means reaching for the keyboard. WindowMover does
-the same hop, plus the one thing nothing built-in does at all - straight to
-wherever the cursor happens to be - entirely from the mouse: hold a side
-button, middle-click.
+`Win+Shift+Arrow`, but that means reaching for the keyboard. Nothing built-in
+does the pull at all.
 
 What exists instead, and where they fall short:
 
