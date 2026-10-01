@@ -15,14 +15,17 @@ WindowMover does two things, both entirely from the mouse:
    the window hops to the next monitor.
 
 Windows can already cycle a focused window to the adjacent monitor with
-`Win+Shift+Arrow`, but that means reaching for the keyboard. Nothing built-in
-does the pull at all.
+`Win+Shift+Arrow`, but that means reaching for the keyboard. Windows documents
+no built-in pull.
 
 What exists instead, and where they fall short:
 
-- **DisplayFusion** — its Mouse Cursor Functions move the cursor, not windows. The
-  closest match is a custom script their staff wrote for one user on request, not
-  a shipped feature.
+- **DisplayFusion** — its Mouse Cursor Functions move the cursor, not windows. It
+  does cycle a window to the next monitor with a middle-click on the title bar,
+  which needs the title bar to be on a monitor you can see. Its documentation
+  describes no setting that pulls an existing window to the cursor's monitor. The
+  closest match is a gallery script that sets a window's position to the cursor,
+  which you have to install as a function and which does not choose the monitor.
 - **PowerToys** — an open, related request,
   [#22165 "Gather Windows"](https://github.com/microsoft/PowerToys/issues/22165)
   (open since November 2022), framed around remote-desktop scenarios rather than
