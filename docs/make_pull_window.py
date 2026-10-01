@@ -397,8 +397,8 @@ def build(PAGE, LABEL, STAND, OUTLINE, OUTLINE_W, TASKBAR, OFF_SCREEN):
     <g class="zoomtxt">
     <g font-size="19">
       <text class="step s1" x="24" y="218">1. Click the icon: the window gets focus</text>
-      <text class="step s2" x="24" y="245">2. Hold Mouse4: choose “to this monitor”</text>
-      <text class="step s3" x="24" y="272">3. Middle-click: the focused window moves</text>
+      <text class="step s2" x="24" y="245">2. Hold Mouse4: select the pull action</text>
+      <text class="step s3" x="24" y="272">3. Middle-click: activate the action</text>
     </g>
     <g transform="translate(440 195) scale(0.92)">
       <rect x="0" y="0" width="70" height="96" rx="32" fill="#161b22" stroke="#c9d1d9" stroke-width="3"/>

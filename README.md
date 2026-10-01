@@ -10,26 +10,21 @@ buttons on your mouse.
 
 ## What it does
 
-WindowMover does two things, both entirely from the mouse:
+WindowMover moves windows between monitors entirely from the mouse - for a
+window on a monitor you've turned off, or when no keyboard is in reach. It has
+two actions:
 
-1. **Pull a window to where you are.** A window is on a monitor you've turned
-   off, or you have no keyboard within reach. On the monitor that's on, click
-   the window's taskbar icon. Hold Mouse4 to choose "the monitor my cursor is
-   on" as the destination, and middle-click to move the window there.
-2. **Cycle a window around the monitors.** Hold Mouse5 to choose "the next
-   monitor" as the destination, and middle-click to move the window there.
-
-Both move the active window - the one that has focus when you press the side
-button, not the one under the cursor. Clicking a window's taskbar icon makes it
-active without handing focus to anything else on screen.
+1. **Pull** - the window comes to the monitor your cursor is on.
+2. **Cycle** - the window goes to the next monitor from the one it is on.
 
 ## Controls
 
-| Shortcut | Action |
+| Button | Role |
 |---|---|
-| Mouse5 + middle click | Move the window to the next monitor |
-| Mouse4 + middle click | Move the window to the monitor your cursor is on |
-| Mouse4 + Mouse5 + middle click | Same as Mouse4 alone - the monitor your cursor is on |
+| Left-click | Puts a window in focus (for example, click its taskbar icon) |
+| Hold Mouse4 | Selects the pull action: to the monitor the cursor is on |
+| Hold Mouse5 | Selects the cycle action: to the next monitor from the window's |
+| Middle-click | Activates the selected action on the focused window |
 
 Mouse4 is the back thumb button and Mouse5 the forward one, on most mice.
 The taskbar, desktop icons, tool windows and very small UI elements are never
