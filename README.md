@@ -19,8 +19,6 @@ WindowMover does two things, both entirely from the mouse:
   <img src="docs/pull-window-light.svg" alt="Two monitors. A blue window on the left monitor is pulled to the right monitor by holding Mouse4 and middle-clicking its taskbar icon. Then the left monitor is turned off and the same thing pulls a red window out of it.">
 </picture>
 
-<img src="docs/move-window.svg" alt="The cursor rests on a window's taskbar icon, Mouse5 is held and the middle button clicked. The window cycles to the other monitor, back, and to the other monitor again.">
-
 ## Controls
 
 | Shortcut | Action |
