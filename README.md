@@ -8,9 +8,9 @@ buttons on your mouse.
 WindowMover does two things, both entirely from the mouse:
 
 1. **Pull a window to where you are.** A window is on a monitor you've turned
-   off, or you have no keyboard within reach. Put the cursor on the monitor
-   that's on, hover the window's taskbar icon, hold Mouse4, and middle-click.
-   The window comes to the monitor your cursor is on.
+   off, or you have no keyboard within reach. On the monitor that's on, click
+   the window's taskbar icon so it becomes the active window, then hold Mouse4
+   and middle-click. The window comes to the monitor your cursor is on.
 2. **Cycle a window around the monitors.** Hold Mouse5 and middle-click, and
    the window hops to the next monitor.
 
