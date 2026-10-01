@@ -14,10 +14,10 @@ WindowMover does two things, both entirely from the mouse:
 
 1. **Pull a window to where you are.** A window is on a monitor you've turned
    off, or you have no keyboard within reach. On the monitor that's on, click
-   the window's taskbar icon, then hold Mouse4 and middle-click. The window
-   comes to the monitor your cursor is on.
-2. **Cycle a window around the monitors.** Hold Mouse5 and middle-click, and
-   the window hops to the next monitor.
+   the window's taskbar icon. Hold Mouse4 to choose "the monitor my cursor is
+   on" as the destination, and middle-click to move the window there.
+2. **Cycle a window around the monitors.** Hold Mouse5 to choose "the next
+   monitor" as the destination, and middle-click to move the window there.
 
 Both move the active window - the one that has focus when you press the side
 button, not the one under the cursor. Clicking a window's taskbar icon makes it
