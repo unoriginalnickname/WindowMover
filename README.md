@@ -3,7 +3,7 @@
 A Windows system tray utility that moves windows between monitors using the side
 buttons on your mouse.
 
-## Why
+## What it does
 
 WindowMover does two things, both entirely from the mouse:
 
@@ -13,35 +13,6 @@ WindowMover does two things, both entirely from the mouse:
    The window comes to the monitor your cursor is on.
 2. **Cycle a window around the monitors.** Hold Mouse5 and middle-click, and
    the window hops to the next monitor.
-
-Windows can already cycle a focused window to the adjacent monitor with
-`Win+Shift+Arrow`, but that means reaching for the keyboard. Windows documents
-no built-in pull.
-
-What exists instead, and where they fall short:
-
-- **DisplayFusion** — its Mouse Cursor Functions move the cursor, not windows. It
-  does move windows by mouse: a middle-click on a title bar, or on a button in its
-  own multi-monitor taskbars, sends the window to the next or previous monitor.
-  With two monitors that is the same result as the pull. With three or more it
-  cycles, and the documentation pages on windows and taskbars describe no way to
-  pick the monitor your cursor is on. A gallery script sets a window's position
-  to the cursor, but you install it as a function and it does not choose the
-  monitor.
-- **PowerToys** — an open, related request,
-  [#22165 "Gather Windows"](https://github.com/microsoft/PowerToys/issues/22165)
-  (open since November 2022), framed around remote-desktop scenarios rather than
-  cursor position specifically. Nothing shipped yet.
-- **AutoHotkey** — [scripts exist](https://www.autohotkey.com/boards/viewtopic.php?t=76122)
-  that do this, but with real gaps: no monitor-bounds check (a window can end up
-  straddling two monitors), no filtering of unsafe windows (taskbar, tool windows,
-  tiny system UI), and maximized windows are skipped entirely rather than
-  restored, moved and remaximized.
-
-WindowMover is this feature on its own: free, and nothing to write or maintain
-like an AutoHotkey script. `WindowMoveFilter`, `MonitorLayout` and
-`WindowPlacement` are covered by the test suite against exactly the gaps
-listed above.
 
 ## Controls
 
