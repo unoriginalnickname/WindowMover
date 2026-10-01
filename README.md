@@ -17,6 +17,11 @@ reach. It has two actions:
 2. **Cycle** - the window goes to the next monitor from the one it is on, in the
    order Windows lists them, wrapping back to the first after the last.
 
+A moved window keeps its place and its share of the screen: a window covering
+the right half of one monitor covers the right half of the next, whatever the
+two monitors' resolutions and scaling settings. A maximized window stays
+maximized.
+
 ## Controls
 
 | Button | Role |
