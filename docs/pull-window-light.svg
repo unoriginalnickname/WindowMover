@@ -13,36 +13,37 @@
     .hit, .hit2, .zoomui, .zoomtxt, .step, .ring, .ring1, .ringb, .ring1b, .left, .xact, .sel, .winvis, .ghost2, .ghostf, .led1on, .again { opacity: 0; }
     .ring, .ring1, .ringb, .ring1b { transform-box: fill-box; transform-origin: center; }
     @media (prefers-reduced-motion: no-preference) {
-      .cam    { animation: cam 28.5s forwards; }
-      .cur    { animation: cur 28.5s forwards; }
-      .win    { animation: hop 28.5s forwards; }
-      .win2   { animation: hop2 28.5s forwards; }
-      .hit    { animation: landed 28.5s forwards; }
-      .hit2   { animation: landed2 28.5s forwards; }
-      .winvis { animation: winvis 28.5s forwards; }
-      .windim { animation: windim 28.5s forwards; }
-      .redvis { animation: redvis 28.5s forwards; }
-      .ghost2 { animation: ghost2 28.5s forwards; }
-      .ghostf { animation: ghostf 28.5s forwards; }
-      .xact   { animation: xact 28.5s forwards; }
-      .sel    { animation: sel 28.5s forwards; }
-      .selr   { animation: selr 28.5s forwards; }
-      .off1   { animation: off1 28.5s forwards; }
-      .led1on { animation: led1on 28.5s forwards; }
-      .again  { animation: again 28.5s forwards; }
-      .zoomui { animation: zoomui 28.5s forwards; }
-      .zoomtxt { animation: zoomtxt 28.5s forwards; }
-      .hidez  { animation: hidez 28.5s forwards; }
-      .s1 { animation: step1 28.5s forwards; }
-      .s2 { animation: step2 28.5s forwards; }
-      .s3 { animation: step3 28.5s forwards; }
-      .side  { animation: side 28.5s forwards; }
-      .wheel { animation: wheel 28.5s forwards; }
-      .ring  { animation: ring 28.5s forwards; }
-      .ring1 { animation: ring1 28.5s forwards; }
-      .ringb { animation: ringb 28.5s forwards; }
-      .ring1b { animation: ring1b 28.5s forwards; }
-      .left  { animation: left 28.5s forwards; }
+      .cam    { animation: cam 28.5s infinite; }
+      .cur    { animation: cur 28.5s infinite; }
+      .win    { animation: hop 28.5s infinite; }
+      .win2   { animation: hop2 28.5s infinite; }
+      .hit    { animation: landed 28.5s infinite; }
+      .hit2   { animation: landed2 28.5s infinite; }
+      .winvis { animation: winvis 28.5s infinite; }
+      .windim { animation: windim 28.5s infinite; }
+      .redvis { animation: redvis 28.5s infinite; }
+      .ghost2 { animation: ghost2 28.5s infinite; }
+      .ghostf { animation: ghostf 28.5s infinite; }
+      .xact   { animation: xact 28.5s infinite; }
+      .sel    { animation: sel 28.5s infinite; }
+      .selr   { animation: selr 28.5s infinite; }
+      .off1   { animation: off1 28.5s infinite; }
+      .led1on { animation: led1on 28.5s infinite; }
+      .again  { animation: again 28.5s infinite; }
+      .zoomui { animation: zoomui 28.5s infinite; }
+      .zoomtxt { animation: zoomtxt 28.5s infinite; }
+      .hidez  { animation: hidez 28.5s infinite; }
+      .loop   { animation: loop 28.5s infinite; }
+      .s1 { animation: step1 28.5s infinite; }
+      .s2 { animation: step2 28.5s infinite; }
+      .s3 { animation: step3 28.5s infinite; }
+      .side  { animation: side 28.5s infinite; }
+      .wheel { animation: wheel 28.5s infinite; }
+      .ring  { animation: ring 28.5s infinite; }
+      .ring1 { animation: ring1 28.5s infinite; }
+      .ringb { animation: ringb 28.5s infinite; }
+      .ring1b { animation: ring1b 28.5s infinite; }
+      .left  { animation: left 28.5s infinite; }
     }
     @keyframes cam {
       0% { transform: translate(0, 0) scale(1); animation-timing-function: cubic-bezier(0.4, 0.14, 0.3, 1); }
@@ -300,6 +301,12 @@
       92.11% { opacity: 0; }
       100% { opacity: 0; }
     }
+    @keyframes loop {
+      0% { opacity: 0; }
+      1.75% { opacity: 1; }
+      97.19% { opacity: 1; }
+      100% { opacity: 0; }
+    }
   </style>
 
   <defs>
@@ -307,6 +314,7 @@
     <clipPath id="s2"><rect x="294" y="30" width="240" height="150"/></clipPath>
   </defs>
   <rect width="524" height="290" rx="12" fill="#ffffff"/>
+  <g class="loop">
 
   <g class="cam"><g transform="translate(-25 0)">
     <!-- monitors: stand, a thin black bezel with a taller bottom band that holds the power button, then the screen -->
@@ -482,5 +490,6 @@
       <g class="left"><circle cx="15" cy="27" r="7.5" fill="#f0883e" stroke="#ffffff" stroke-width="1.5"/><text class="num numon" x="15" y="30.6" font-size="10" text-anchor="middle">1</text></g><g class="side"><circle cx="-22" cy="67" r="7.5" fill="#f0883e" stroke="#ffffff" stroke-width="1.5"/><text class="num numon" x="-22" y="70.6" font-size="10" text-anchor="middle">2</text></g><g class="wheel"><circle cx="35" cy="22" r="7.5" fill="#f0883e" stroke="#ffffff" stroke-width="1.5"/><text class="num numon" x="35" y="25.6" font-size="10" text-anchor="middle">3</text></g>
     </g>
     </g>
+  </g>
   </g>
 </svg>

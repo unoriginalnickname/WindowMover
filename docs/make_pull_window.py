@@ -25,7 +25,7 @@ EASE = 'cubic-bezier(0.2, 0, 0.38, 0.9)'
 SHOWY = 'cubic-bezier(0.4, 0.14, 0.3, 1)'
 ID = 'translate(0, 0) scale(1)'
 MEDIUM = f'translate({-1.6 * (66 + CENTER):g}px, -99.2px) scale(1.6)'   # shows the left window and the right monitor's taskbar icons
-TS = f"{T:g}s forwards"
+TS = f"{T:g}s infinite"     # loops; the "loop" track fades the picture out and back in at the seam
 
 
 def q(x):
@@ -126,6 +126,8 @@ TRACKS = [
     op("redvis", [(0, 0), (MOVE2[0], 0), (MOVE2[0] + 0.5, 1)]),
     tx("hop2", [(0, X0, EASE), (MOVE2[0], X0, EASE), (MOVE2[1], X320)]),
     op("landed2", [(0, 0), (MIDDLE2, 0), (MIDDLE2 + 0.05, 1), (HIT2_OFF, 1), (HIT2_OFF + 0.25, 0)]),
+    # fades the whole picture in at the start and out at the end, so the loop restarts without a jump
+    op("loop", [(0, 0), (0.5, 1), (T - 0.8, 1), (T, 0)]),
 ]
 KF = "".join(TRACKS)
 
@@ -254,6 +256,7 @@ def build(PAGE, LABEL, STAND, OUTLINE, OUTLINE_W, TASKBAR, OFF_SCREEN):
       .zoomui {{ animation: zoomui {TS}; }}
       .zoomtxt {{ animation: zoomtxt {TS}; }}
       .hidez  {{ animation: hidez {TS}; }}
+      .loop   {{ animation: loop {TS}; }}
       .s1 {{ animation: step1 {TS}; }}
       .s2 {{ animation: step2 {TS}; }}
       .s3 {{ animation: step3 {TS}; }}
@@ -272,6 +275,7 @@ def build(PAGE, LABEL, STAND, OUTLINE, OUTLINE_W, TASKBAR, OFF_SCREEN):
     <clipPath id="s2"><rect x="{40 + DX}" y="30" width="240" height="150"/></clipPath>
   </defs>
   <rect width="{W}" height="290" rx="12" fill="{PAGE}"/>
+  <g class="loop">
 
   <g class="cam"><g transform="translate({CENTER} 0)">
     <!-- monitors: stand, a thin black bezel with a taller bottom band that holds the power button, then the screen -->
@@ -410,6 +414,7 @@ def build(PAGE, LABEL, STAND, OUTLINE, OUTLINE_W, TASKBAR, OFF_SCREEN):
       <g class="left"><circle cx="15" cy="27" r="7.5" fill="#f0883e" stroke="#ffffff" stroke-width="1.5"/><text class="num numon" x="15" y="30.6" font-size="10" text-anchor="middle">1</text></g><g class="side"><circle cx="-22" cy="67" r="7.5" fill="#f0883e" stroke="#ffffff" stroke-width="1.5"/><text class="num numon" x="-22" y="70.6" font-size="10" text-anchor="middle">2</text></g><g class="wheel"><circle cx="35" cy="22" r="7.5" fill="#f0883e" stroke="#ffffff" stroke-width="1.5"/><text class="num numon" x="35" y="25.6" font-size="10" text-anchor="middle">3</text></g>
     </g>
     </g>
+  </g>
   </g>
 </svg>
 """
