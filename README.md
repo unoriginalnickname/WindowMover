@@ -22,6 +22,10 @@ screen: a window covering the right half of one monitor covers the right half of
 the other, independent of the two monitors' resolutions and scaling settings. A
 maximized window stays maximized.
 
+Between monitors of different shapes, such as an ultrawide next to a standard
+screen, a window gets stretched or squashed, because its width and height scale
+separately. Moving it back restores its size.
+
 ## Controls
 
 | Button | Role |
