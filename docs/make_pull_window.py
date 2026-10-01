@@ -332,8 +332,9 @@ def build(PAGE, LABEL, STAND, OUTLINE, OUTLINE_W, TASKBAR, OFF_SCREEN):
     {M1_RED}
 
     <!-- taskbars, the same buttons on both (see TASKBAR_SPEC). The blue icon is the blue window's, the red one the red window's. -->
-    <rect x="40" y="160" width="240" height="20" fill="{TASKBAR}" clip-path="url(#s1)"/>
-    <rect x="{40 + DX}" y="160" width="240" height="20" fill="{TASKBAR}" clip-path="url(#s2)"/>
+    <!-- half a unit wider than the screen on each side, out to the outer edge of the screen's 1-unit edge line -->
+    <rect x="39.5" y="160" width="241" height="20" fill="{TASKBAR}"/>
+    <rect x="{39.5 + DX}" y="160" width="241" height="20" fill="{TASKBAR}"/>
     <rect class="sel" x="{372 + SH}" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <rect class="selr" x="{394 + SH}" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <rect class="xact" x="{416 + SH}" y="161" width="24" height="15" rx="2" fill="#4a5360"/>

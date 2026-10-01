@@ -379,8 +379,9 @@
     <rect x="176" y="98" width="92" height="58" rx="3" fill="#6b454a"/><rect x="176" y="98" width="92" height="10" rx="3" fill="#5b3a3e"/><rect x="176" y="104" width="92" height="4" fill="#5b3a3e"/><rect x="184" y="115" width="55" height="4" rx="2" fill="#ffffff" opacity="0.22"/><rect x="184" y="124" width="65" height="4" rx="2" fill="#ffffff" opacity="0.22"/><rect x="184" y="133" width="36" height="4" rx="2" fill="#ffffff" opacity="0.22"/><rect x="176.5" y="98.5" width="91" height="57" rx="2.5" fill="none" stroke="#9aa5b1" stroke-opacity="0.35"/>
 
     <!-- taskbars, the same buttons on both (see TASKBAR_SPEC). The blue icon is the blue window's, the red one the red window's. -->
-    <rect x="40" y="160" width="240" height="20" fill="#262c34" clip-path="url(#s1)"/>
-    <rect x="294" y="160" width="240" height="20" fill="#262c34" clip-path="url(#s2)"/>
+    <!-- half a unit wider than the screen on each side, out to the outer edge of the screen's 1-unit edge line -->
+    <rect x="39.5" y="160" width="241" height="20" fill="#262c34"/>
+    <rect x="293.5" y="160" width="241" height="20" fill="#262c34"/>
     <rect class="sel" x="306" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <rect class="selr" x="328" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
     <rect class="xact" x="350" y="161" width="24" height="15" rx="2" fill="#4a5360"/>
