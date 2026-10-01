@@ -52,9 +52,11 @@ internal static class SystemTrayIcon
 
         trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("About", null, (s, e) => MessageBox.Show(
-            "Window Mover\n\n" +
-            "• Mouse4 + Mouse3 (middle click) = Move to cursor's monitor\n" +
-            "• Mouse5 + Mouse3 (middle click) = Cycle to next monitor",
+            "WindowMover\n\n" +
+            "Left-click: put a window in focus\n" +
+            "Hold Mouse4: select pull (to the monitor your cursor is on)\n" +
+            "Hold Mouse5: select cycle (to the next monitor)\n" +
+            "Middle-click: activate the selected action",
             "About", MessageBoxButtons.OK, MessageBoxIcon.Information));
         trayMenu.Items.Add(new ToolStripSeparator());
 
@@ -65,7 +67,7 @@ internal static class SystemTrayIcon
         {
             Icon = SystemIcons.Application, // Replace with your turtle icon if desired
             ContextMenuStrip = trayMenu,
-            Text = "Window Mover",
+            Text = "WindowMover",
             Visible = true
         };
 

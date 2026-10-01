@@ -1,4 +1,4 @@
-// Window Mover - A system tray utility that moves windows between monitors
+// WindowMover - A system tray utility that moves windows between monitors
 // Controls: Mouse4 + Mouse3 (middle click) = move to cursor's monitor,
 //           Mouse5 + Mouse3 = cycle to next monitor
 //
@@ -33,7 +33,7 @@ class Program
         using var mutex = new System.Threading.Mutex(true, "WindowMover_SingleInstance", out bool createdNew);
         if (!createdNew)
         {
-            MessageBox.Show("Window Mover is already running.", "Already Running", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("WindowMover is already running.", "Already Running", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -59,7 +59,7 @@ class Program
             string msg = removedCount == 1
                 ? "Removed 1 old startup entry for WindowMover."
                 : $"Removed {removedCount} old startup entries for WindowMover.";
-            trayIcon.ShowBalloonTip(5000, "Window Mover", msg, ToolTipIcon.Info);
+            trayIcon.ShowBalloonTip(5000, "WindowMover", msg, ToolTipIcon.Info);
         }
 
         // Run the message loop (keeps app alive in system tray)

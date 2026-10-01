@@ -32,9 +32,13 @@ elements are ignored.
 
 ## Running it
 
-There is no download yet. Build it (see Building and testing), then run
-`WindowMover.App.exe`. It appears in the system tray, and only one copy runs at a
-time.
+Download `WindowMover.App.exe` from
+[Releases](https://github.com/unoriginalnickname/WindowMover/releases) and run it.
+Nothing else needs to be installed. It appears in the system tray, and only one
+copy runs at a time.
+
+The exe is not signed, so Windows SmartScreen may warn about it the first time.
+Choose **More info**, then **Run anyway**.
 
 ## Tray menu
 
@@ -121,14 +125,14 @@ which is why one of these tests uses VS Code itself. Live tests are skipped
 automatically on a single-monitor machine, and the VS Code one is skipped when
 VS Code is not installed.
 
-To produce the executable:
+To produce the single-file exe that goes on the Releases page:
 
 ```
-dotnet build WindowMover.App/WindowMover.App.csproj -c Release
+dotnet publish WindowMover.App/WindowMover.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
-It lands in `WindowMover.App/bin/Release/net10.0-windows/`.
+It lands in `publish/`.
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE).
