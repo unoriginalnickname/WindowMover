@@ -36,6 +36,9 @@ internal static class NativeMethods
     public const int MDT_EFFECTIVE_DPI = 0;
     public const int DPI_AWARENESS_PER_MONITOR_AWARE = 2;
 
+    // DWM: the part of a window actually drawn, without its invisible resize border
+    public const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+
     // WinEvent constants - used to notice when a user starts dragging a window's own
     // move/resize border, as distinct from a program calling SetWindowPos on it.
     public const uint EVENT_SYSTEM_MOVESIZESTART = 0x000A;
@@ -104,6 +107,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
     [DllImport("user32.dll")] public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
     [DllImport("user32.dll")] public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+    [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
 
     // --------------------------- Conversions ---------------------------
     // Converts a Win32 RECT (edges) into a Rectangle (position + size)

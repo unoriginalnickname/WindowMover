@@ -1,7 +1,8 @@
 // WindowMover - A system tray utility that moves windows between monitors
 // Controls: Mouse4 + Mouse3 (middle click) = move to cursor's monitor,
 //           Mouse5 + Mouse3 = cycle to next monitor,
-//           Ctrl+Shift + wheel = make the window bigger or smaller
+//           Ctrl+Shift + wheel = make the window bigger or smaller,
+//           Ctrl+Shift + Mouse4 / Mouse5 = fill the left / right half of the screen
 //
 // This file is only the entry point: start everything, run the message loop, stop
 // everything. The rest of the app is one folder per job -

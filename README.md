@@ -50,6 +50,14 @@ most apps use Shift + scroll to scroll sideways. If you have more than one keybo
 layout installed and Windows switches layouts on Ctrl+Shift, turn that shortcut off
 in Windows' input settings.
 
+### Half the screen
+
+Hold **Ctrl+Shift** and press **Mouse4** to make the focused window fill the left
+half of its monitor, or **Mouse5** for the right half: full height, from the
+screen's edge to its middle, with no gap at either. A maximized window comes out
+of maximized to do it. The button press does not reach the app, so a browser does
+not also go back or forward.
+
 ## Controls
 
 | Input | Role |
@@ -59,6 +67,7 @@ in Windows' input settings.
 | Hold Mouse5 | Selects cycle |
 | Middle-click | Activates the selected action on the focused window |
 | Hold Ctrl+Shift + scroll | Makes the focused window bigger (up) or smaller (down) |
+| Hold Ctrl+Shift + Mouse4 / Mouse5 | Fills the left / right half of the screen with the focused window |
 
 Mouse4 is the back thumb button and Mouse5 the forward one, on most mice. If both
 are held, pull wins. The taskbar, desktop icons, tool windows and very small UI
@@ -104,7 +113,11 @@ When a side button goes down, WindowMover notes which window has focus. When the
 middle button is clicked, it checks which side button is still held: Mouse4 means
 pull and Mouse5 means cycle. If both side buttons were released, nothing moves.
 A wheel turn while Ctrl and Shift are both down (read with `GetAsyncKeyState`)
-resizes the focused window instead of scrolling. The resize is posted to the
+resizes the focused window instead of scrolling, and a side button pressed with
+them snaps it to half the screen. Most windows have an invisible resize border a
+few pixels wide, so the snap reads the visible frame from DWM
+(`DWMWA_EXTENDED_FRAME_BOUNDS`) and sizes the window so that is what meets the
+edges. The resize is posted to the
 window's own thread (`SWP_ASYNCWINDOWPOS`) rather than waited on, so an app that
 is slow to repaint cannot hold up the mouse.
 
@@ -137,7 +150,7 @@ Inside `WindowMover.App`, one folder per job:
 | Folder | What is in it |
 |---|---|
 | `Input/` | `MouseGestureHook` - the low-level mouse hook, turning button and wheel events into a move or a resize |
-| `Moving/` | `MovableWindowCheck` (may this window be moved), `MoveTargetBounds` (where it lands), `WindowMove` (the move itself), `WindowResize` (Ctrl+Shift + wheel), `WindowTransparency` (hiding it on the way), `MoveSettleWatcher` (what happens after, until it stops changing) |
+| `Moving/` | `MovableWindowCheck` (may this window be moved), `MoveTargetBounds` (where it lands), `WindowMove` (the move itself), `WindowResize` (Ctrl+Shift + wheel), `WindowSnap` (Ctrl+Shift + side button), `WindowTransparency` (hiding it on the way), `MoveSettleWatcher` (what happens after, until it stops changing) |
 | `Feedback/` | `MoveIndicator` - the outline drawn where the window landed |
 | `Tray/` | `SystemTrayIcon`, `UserSettings`, `StartupRegistry` |
 | `Win32/` | `NativeMethods` - every P/Invoke in the app |

@@ -15,7 +15,11 @@ What changed between releases, newest first. Bugs and their history are in ISSUE
   the screen, a moved window can land at three-quarters, two-thirds, half or a
   third of the new screen, centred on where it would have gone. Maximized windows
   still land maximized. The choice is remembered across restarts.
-- The About box lists the resize control.
+- **Half the screen with Ctrl+Shift + Mouse4 or Mouse5.** The focused window
+  fills the left (Mouse4) or right (Mouse5) half of its monitor, edge to edge
+  and full height. The button press is held back from the app, so a browser
+  doesn't go back or forward at the same time.
+- The About box lists the resize and half-screen controls.
 
 ## 1.0 - 2026-10-01
 

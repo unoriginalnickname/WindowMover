@@ -114,4 +114,31 @@ public static class WindowPlacement
 
         return new Rectangle(x, y, size.Width, size.Height);
     }
+
+    // Ctrl+Shift + Mouse4 or Mouse5: the left or right half of the working area, full height.
+    // On an odd width the right half gets the extra pixel, so the two halves always meet
+    // exactly in the middle with no gap and no overlap.
+    public static Rectangle Half(Rectangle workingArea, bool right)
+    {
+        int leftWidth = workingArea.Width / 2;
+        return right
+            ? new Rectangle(workingArea.X + leftWidth, workingArea.Y, workingArea.Width - leftWidth, workingArea.Height)
+            : new Rectangle(workingArea.X, workingArea.Y, leftWidth, workingArea.Height);
+    }
+
+    // The bounds to hand SetWindowPos so the window's *visible* frame lands on target. Since
+    // Windows 10 most windows have an invisible resize border a few pixels wide on the left,
+    // right and bottom, which GetWindowRect counts and the eye does not; setting the target
+    // directly leaves a gap between the window and the screen edge. windowRect is what
+    // GetWindowRect reports and visibleFrame what DWM says is actually drawn, at the window's
+    // current size - the border does not change with size, so the difference carries over.
+    public static Rectangle IncludingInvisibleBorder(Rectangle target, Rectangle windowRect, Rectangle visibleFrame)
+    {
+        int left = visibleFrame.Left - windowRect.Left;
+        int top = visibleFrame.Top - windowRect.Top;
+        int right = windowRect.Right - visibleFrame.Right;
+        int bottom = windowRect.Bottom - visibleFrame.Bottom;
+
+        return Rectangle.FromLTRB(target.Left - left, target.Top - top, target.Right + right, target.Bottom + bottom);
+    }
 }

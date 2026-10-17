@@ -285,4 +285,36 @@ public class WindowPlacementTests
 
         Assert.Equal(new Rectangle(960, 540, 960, 540), bounds);
     }
+
+    [Fact]
+    public void The_left_half_runs_from_the_left_edge_to_the_middle_at_full_height()
+    {
+        var half = WindowPlacement.Half(new Rectangle(1920, 0, 2560, 1400), right: false);
+
+        Assert.Equal(new Rectangle(1920, 0, 1280, 1400), half);
+    }
+
+    [Fact]
+    public void On_an_odd_width_the_halves_meet_with_no_gap()
+    {
+        var screen = new Rectangle(0, 0, 1921, 1040);
+
+        var left = WindowPlacement.Half(screen, right: false);
+        var right = WindowPlacement.Half(screen, right: true);
+
+        Assert.Equal(left.Right, right.Left);
+        Assert.Equal(screen.Right, right.Right);
+    }
+
+    [Fact]
+    public void The_invisible_border_is_added_outside_the_target()
+    {
+        // A typical Windows 11 window: 7px of invisible border left, right and bottom, none on top
+        var windowRect = new Rectangle(93, 100, 814, 607);
+        var visibleFrame = new Rectangle(100, 100, 800, 600);
+
+        var bounds = WindowPlacement.IncludingInvisibleBorder(new Rectangle(0, 0, 960, 1040), windowRect, visibleFrame);
+
+        Assert.Equal(Rectangle.FromLTRB(-7, 0, 967, 1047), bounds);
+    }
 }

@@ -3,7 +3,7 @@ using WindowMover.Core;
 using static NativeMethods;
 
 // The gestures: a side button held, then a middle click to move; Ctrl+Shift held, then the
-// wheel to resize. This installs the low-level mouse
+// wheel to resize, or a side button to fill the left or right half of the screen. This installs the low-level mouse
 // hook, which Windows calls for every mouse event system-wide, and hands what it sees to
 // ButtonComboTracker (in WindowMover.Core) to say what the combination means. Whatever the
 // tracker decides is a move, WindowMove carries out.
@@ -19,6 +19,12 @@ internal static class MouseGestureHook
 
     // Remembers which extra buttons are pressed and which window they grabbed
     private static readonly ButtonComboTracker buttons = new();
+
+    // The side buttons whose press went to a half-screen snap and was swallowed. Their release
+    // has to be swallowed too: apps act on the release (a browser goes back on it), not the
+    // press. Kept per button, since Ctrl+Shift may be let go before the button is.
+    private static bool snappedMouse4;
+    private static bool snappedMouse5;
 
     public static void Install()
     {
@@ -43,7 +49,22 @@ internal static class MouseGestureHook
             int xButton = (int)(hookStruct.mouseData >> 16); // Extract which X button (4 or 5)
 
             // Handle extra mouse button press (Mouse 4 or 5)
-            if (wParam == (IntPtr)WM_XBUTTONDOWN)
+            if (wParam == (IntPtr)WM_XBUTTONDOWN && IsHeld(VK_CONTROL) && IsHeld(VK_SHIFT)
+                && MovableWindowCheck.IsMovable(GetForegroundWindow()))
+            {
+                // Ctrl+Shift + Mouse4 fills the left half of the focused window's monitor, Mouse5
+                // the right. Never reaches ButtonComboTracker, so it starts no move combo.
+                bool right = xButton == XBUTTON2;
+                if (right) snappedMouse5 = true; else snappedMouse4 = true;
+                WindowSnap.ToHalf(GetForegroundWindow(), right);
+                return (IntPtr)1;
+            }
+            else if (wParam == (IntPtr)WM_XBUTTONUP && (xButton == XBUTTON1 ? snappedMouse4 : snappedMouse5))
+            {
+                if (xButton == XBUTTON1) snappedMouse4 = false; else snappedMouse5 = false;
+                return (IntPtr)1;
+            }
+            else if (wParam == (IntPtr)WM_XBUTTONDOWN)
             {
                 // Grab the focused window now - by the time the user middle-clicks,
                 // something else may have taken focus
