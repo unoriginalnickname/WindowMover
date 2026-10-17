@@ -10,6 +10,9 @@
       .pg1 { animation: pg1 22.4s infinite; }
       .pg2 { animation: pg2 22.4s infinite; }
       .pg3 { animation: pg3 22.4s infinite; }
+      .past1 { animation: done1 22.4s infinite; }
+      .past2 { animation: done2 22.4s infinite; }
+      .past3 { animation: done3 22.4s infinite; }
       .st1 { animation: step1 22.4s infinite; }
       .st2 { animation: step2 22.4s infinite; }
       .st3 { animation: step3 22.4s infinite; }
@@ -54,6 +57,30 @@
       0% { opacity: 0; }
       75% { opacity: 0; }
       75.89% { opacity: 1; }
+      93.3% { opacity: 1; }
+      94.2% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    @keyframes done1 {
+      0% { opacity: 0; }
+      22.77% { opacity: 0; }
+      23.66% { opacity: 1; }
+      93.3% { opacity: 1; }
+      94.2% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    @keyframes done2 {
+      0% { opacity: 0; }
+      45.76% { opacity: 0; }
+      46.65% { opacity: 1; }
+      93.3% { opacity: 1; }
+      94.2% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    @keyframes done3 {
+      0% { opacity: 0; }
+      74.11% { opacity: 0; }
+      75% { opacity: 1; }
       93.3% { opacity: 1; }
       94.2% { opacity: 0; }
       100% { opacity: 0; }
@@ -251,10 +278,10 @@
   <!-- the steps, and the leaders from each step to its key or button -->
   <g font-size="15">
     <text x="156" y="48" font-size="16" font-weight="600" fill="#f0f6fc">Resize the focused window</text>
-    <circle cx="160" cy="77" r="3" fill="#6e7681"/><text x="170" y="82" fill="#6e7681">Hold Ctrl+Shift and…</text><g class="st1"><circle cx="160" cy="77" r="3.5" fill="#f0883e"/><text x="170" y="82" fill="#f0f6fc">Hold Ctrl+Shift and…</text></g>
-    <circle cx="160" cy="112" r="3" fill="#6e7681"/><text x="170" y="117" fill="#6e7681">…scroll up to make the window bigger</text><g class="st2"><circle cx="160" cy="112" r="3.5" fill="#f0883e"/><text x="170" y="117" fill="#f0f6fc">…scroll up to make the window bigger</text></g>
-    <circle cx="160" cy="147" r="3" fill="#6e7681"/><text x="170" y="152" fill="#6e7681">…scroll down to make it smaller</text><g class="st3"><circle cx="160" cy="147" r="3.5" fill="#f0883e"/><text x="170" y="152" fill="#f0f6fc">…scroll down to make it smaller</text></g>
-    <circle cx="160" cy="182" r="3" fill="#6e7681"/><text x="170" y="187" fill="#6e7681">Now you can release Ctrl+Shift</text><g class="st4"><circle cx="160" cy="182" r="3.5" fill="#f0883e"/><text x="170" y="187" fill="#f0f6fc">Now you can release Ctrl+Shift</text></g>
+    <g class="past1"><circle cx="160" cy="77" r="3" fill="#6e7681"/><text x="170" y="82" fill="#6e7681">Hold Ctrl+Shift</text></g><g class="st1"><circle cx="160" cy="77" r="3.5" fill="#f0883e"/><text x="170" y="82" fill="#f0f6fc">Hold Ctrl+Shift</text></g>
+    <g class="past2"><circle cx="160" cy="112" r="3" fill="#6e7681"/><text x="170" y="117" fill="#6e7681">Scroll up: bigger</text></g><g class="st2"><circle cx="160" cy="112" r="3.5" fill="#f0883e"/><text x="170" y="117" fill="#f0f6fc">Scroll up: bigger</text></g>
+    <g class="past3"><circle cx="160" cy="147" r="3" fill="#6e7681"/><text x="170" y="152" fill="#6e7681">Scroll down: smaller</text></g><g class="st3"><circle cx="160" cy="147" r="3.5" fill="#f0883e"/><text x="170" y="152" fill="#f0f6fc">Scroll down: smaller</text></g>
+    <g class="st4"><circle cx="160" cy="182" r="3.5" fill="#f0883e"/><text x="170" y="187" fill="#f0f6fc">Release Ctrl+Shift</text></g>
   </g>
   <g class="pgbar"><rect x="156" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="182" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="208" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="234" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect class="pg0" x="156" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg1" x="182" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg2" x="208" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg3" x="234" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/></g>
   <g fill="none" stroke="#f0883e" stroke-width="1.6" stroke-linejoin="round">

@@ -4,8 +4,9 @@ Run: python make_pull_window.py   (writes pull-window-light.svg and pull-window-
 The SVGs are generated; edit this file, not them. Times below are in seconds.
 
 The picture reads left to right: the mouse, the steps, the two monitors. The cursor is on the left
-monitor, so that is where windows are pulled to. Each step is one line of text with an orange leader
-to the mouse button it uses, lit while that step is happening; nothing zooms and nothing is numbered.
+monitor, so that is where windows are pulled to. Each step is a few words with an orange leader to the
+mouse button it uses. A step's text appears only when that step happens, dims once it is done and is
+cleared at the end of its pass, so there is never a list to read ahead; nothing zooms and nothing is numbered.
 Each step holds for a few seconds once its result shows (HOLD), with the button it used still lit and, for
 a click or press, a decal where it landed (the cursor turns into a pointing hand, rays at its fingertip), so the chain mouse → step → monitors can be read before the next
 step. A segmented progress bar under the steps shows where in the flow the picture is.
@@ -14,7 +15,7 @@ The story, in two passes under their own heading:
   Pass 1. "Both monitors on". The blue window is on the right monitor, unfocused, behind a red one; a
           window on the left monitor has focus. Click the blue window's icon on the left monitor's
           taskbar (focus moves to it), hold Mouse4, middle-click: the blue window comes over. Release.
-  Pass 2. "The right monitor turned off". A finger presses the right monitor's power button and its
+  Pass 2. "Right monitor off". A finger presses the right monitor's power button and its
           screen goes black, leaving a grey dotted outline where the red window is. The same four
           steps bring the red window out of the dark monitor. Then the cursor leaves, ending the loop.
 """
@@ -127,11 +128,14 @@ TRACKS = [
                   (CUR_OUT[1], "opacity: 0; transform: translate(-60px, 70px)")]),
     op("head1", [(0, 1), (HEAD, 1), (HEAD + 0.2, 0)]),
     op("head2", [(0, 0), (HEAD + 0.2, 0), (HEAD + 0.4, 1)]),
-    # the steps: lit one at a time, faint otherwise
+    # the steps: each appears lit as it happens, stays faint once done, and the pass's end clears them all
     shown("step1", (S1A, E1A), (S1B, E1B)),
     shown("step2", (S2A, E2A), (S2B, E2B)),
     shown("step3", (S3A, E3A), (S3B, E3B)),
     shown("step4", (S4A, E4A), (S4B, E4B)),
+    shown("done1", (E1A, E4A), (E1B, E4B)),
+    shown("done2", (E2A, E4A), (E2B, E4B)),
+    shown("done3", (E3A, E4A), (E3B, E4B)),
     # leaders to the mouse: Mouse4's stays up while it is held, through the middle click
     shown("lead1", (S1A, E1A), (S1B, E1B)),
     shown("lead2", (S2A, E3A), (S2B, E3B)),
@@ -285,8 +289,8 @@ def at(x, y):
 
 BULLET_X, TEXT_X = 160, 170
 ROWS = (82, 117, 152, 187)   # baselines of the four steps
-STEPS = ("Select the window on the taskbar", "Hold Mouse4 and…", "…middle-click to relocate the window", "Now you can release Mouse4")
-STEP1_END = TEXT_X + 219     # step 1's width in Segoe UI 15px, measured; where its leader to the taskbar starts
+STEPS = ("Click its taskbar icon", "Hold Mouse4", "Middle-click", "Release Mouse4")
+STEP1_END = TEXT_X + 134     # step 1's width in Segoe UI 15px, measured; where its leader to the taskbar starts
 
 
 def row(i):
@@ -342,7 +346,7 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
     lead = f'fill="none" stroke="{ORANGE}" stroke-width="1.6" stroke-linejoin="round"'
     pg_css = "\n".join(f"      .pg{i} {{ animation: pg{i} {TS}; }}" for i in range(len(SEGMENTS)))
     steps = "\n    ".join(
-        f'<circle cx="{BULLET_X}" cy="{row(i)}" r="3" fill="{FAINT}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{FAINT}">{s}</text>'
+        (f'<g class="past{i + 1}"><circle cx="{BULLET_X}" cy="{row(i)}" r="3" fill="{FAINT}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{FAINT}">{s}</text></g>' if i < 3 else '') +
         f'<g class="st{i + 1}"><circle cx="{BULLET_X}" cy="{row(i)}" r="3.5" fill="{ORANGE}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{BRIGHT}">{s}</text></g>'
         for i, s in enumerate(STEPS))
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-labelledby="t d">
@@ -367,6 +371,9 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
       .cur    {{ animation: cur {TS}; }}
       .head1  {{ animation: head1 {TS}; }}
       .head2  {{ animation: head2 {TS}; }}
+      .past1 {{ animation: done1 {TS}; }}
+      .past2 {{ animation: done2 {TS}; }}
+      .past3 {{ animation: done3 {TS}; }}
       .st1 {{ animation: step1 {TS}; }}
       .st2 {{ animation: step2 {TS}; }}
       .st3 {{ animation: step3 {TS}; }}
@@ -427,7 +434,7 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
   <!-- the steps, a heading per pass, and the leaders from each step to its button and to the screen -->
   <g font-size="15">
     <text class="head1" x="{BULLET_X - 4}" y="48" font-size="16" font-weight="600" fill="{BRIGHT}">Both monitors on</text>
-    <text class="head2" x="{BULLET_X - 4}" y="48" font-size="16" font-weight="600" fill="{BRIGHT}">The right monitor turned off</text>
+    <text class="head2" x="{BULLET_X - 4}" y="48" font-size="16" font-weight="600" fill="{BRIGHT}">Right monitor off</text>
     {steps}
   </g>
   {progress(FAINT, len(SEGMENTS), (3, 4))}

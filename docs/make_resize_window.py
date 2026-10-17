@@ -6,8 +6,9 @@ The SVGs are generated; edit this file, not them. Times below are in seconds.
 It is drawn like the pull-window animation (make_pull_window.py, whose pieces it borrows): the mouse, the
 steps, then one monitor. Ctrl and Shift keys sit above the mouse. The blue window has focus. Ctrl+Shift
 go down, the wheel turns up three notches and the window grows a step at a time, kept on its screen, then
-down six and it shrinks. A dashed outline keeps the size it started at, to measure by. Each step holds
-for a few seconds once its result shows, and a progress bar under the steps shows where the picture is.
+down six and it shrinks. A dashed outline keeps the size it started at, to measure by. Each step's text
+appears only when it happens and dims once done, as in the pull animation; it holds for a few seconds
+once its result shows, and a progress bar under the steps shows where the picture is.
 """
 from pathlib import Path
 import xml.dom.minidom as m
@@ -94,7 +95,7 @@ for _t, _n in [(t, 1) for t in UP] + [(t, -1) for t in DOWN]:
     _r = scaled(_r, _n)
     GROW.append((_t + 0.15, to_rect(_r)))
 
-STEPS = ("Hold Ctrl+Shift and…", "…scroll up to make the window bigger", "…scroll down to make it smaller", "Now you can release Ctrl+Shift")
+STEPS = ("Hold Ctrl+Shift", "Scroll up: bigger", "Scroll down: smaller", "Release Ctrl+Shift")
 
 # The wheel's leaders are the pull animation's step-3 route, from rows 1 and 2. The keys' leader forks to
 # both keys: Ctrl's centre is at x=48, Shift's at 106.
@@ -111,6 +112,9 @@ TRACKS = [
     shown("step2", (S2, E2)),
     shown("step3", (S3, E3)),
     shown("step4", (S4, E4)),
+    shown("done1", (E1, E4)),
+    shown("done2", (E2, E4)),
+    shown("done3", (E3, E4)),
     shown("keys1", (S1, E3)),
     shown("keys4", (S4, E4)),
     shown("leadup", (S2, E2)),
@@ -134,7 +138,7 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
     lead = f'fill="none" stroke="{ORANGE}" stroke-width="1.6" stroke-linejoin="round"'
     pg_css = "\n".join(f"      .pg{i} {{ animation: pg{i} {TS}; }}" for i in range(len(SEGMENTS)))
     steps = "\n    ".join(
-        f'<circle cx="{BULLET_X}" cy="{row(i)}" r="3" fill="{FAINT}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{FAINT}">{s}</text>'
+        (f'<g class="past{i + 1}"><circle cx="{BULLET_X}" cy="{row(i)}" r="3" fill="{FAINT}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{FAINT}">{s}</text></g>' if i < 3 else '') +
         f'<g class="st{i + 1}"><circle cx="{BULLET_X}" cy="{row(i)}" r="3.5" fill="{ORANGE}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{BRIGHT}">{s}</text></g>'
         for i, s in enumerate(STEPS))
 
@@ -151,6 +155,9 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
     @media (prefers-reduced-motion: no-preference) {{
       .pgbar {{ opacity: 1; }}
 {pg_css}
+      .past1 {{ animation: done1 {TS}; }}
+      .past2 {{ animation: done2 {TS}; }}
+      .past3 {{ animation: done3 {TS}; }}
       .st1 {{ animation: step1 {TS}; }}
       .st2 {{ animation: step2 {TS}; }}
       .st3 {{ animation: step3 {TS}; }}
