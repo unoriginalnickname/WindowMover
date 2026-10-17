@@ -58,6 +58,11 @@ screen's edge to its middle, with no gap at either. A maximized window comes out
 of maximized to do it. The button press does not reach the app, so a browser does
 not also go back or forward.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/snap-window-dark.svg">
+  <img src="docs/snap-window-light.svg" alt="A mouse with Ctrl and Shift keys above it, four steps and one monitor. With Ctrl and Shift held, Mouse4 is pressed and the focused blue window fills the left half of the screen, then Mouse5 is pressed and it fills the right half. Then Ctrl and Shift are released.">
+</picture>
+
 ## Controls
 
 | Input | Role |
