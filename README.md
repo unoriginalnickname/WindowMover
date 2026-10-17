@@ -1,7 +1,7 @@
 # WindowMover
 
 A Windows system tray utility that moves windows between monitors using only the
-mouse.
+mouse, and resizes them in place.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/pull-window-dark.svg">
@@ -26,14 +26,34 @@ Between monitors of different shapes, such as an ultrawide next to a standard
 screen, a window gets stretched or squashed, because its width and height scale
 separately. Moving it back restores its size.
 
+If moved windows come out bigger than you want, pick a fixed size in the tray
+menu's **Size after a move** instead: three-quarters, two-thirds, half or a third
+of the screen. A moved window then lands at that size, centred on where it would
+have gone. Maximized windows still land maximized.
+
+### Resizing
+
+Hold **Ctrl+Shift** and scroll: up makes the focused window bigger, down makes it
+smaller, by 10% a notch, around its own centre. It stays on its monitor and never
+grows past the screen; once one side reaches the edge, only the other keeps
+growing. Scrolling down on a maximized window takes it out of maximized and
+shrinks it from full screen.
+
+While Ctrl+Shift is held and the focused window can be resized, the wheel does not
+reach the app, so it neither scrolls nor zooms. Plain Shift is left alone because
+most apps use Shift + scroll to scroll sideways. If you have more than one keyboard
+layout installed and Windows switches layouts on Ctrl+Shift, turn that shortcut off
+in Windows' input settings.
+
 ## Controls
 
-| Button | Role |
+| Input | Role |
 |---|---|
 | Left-click | Puts a window in focus (for example, click its taskbar icon) |
 | Hold Mouse4 | Selects pull |
 | Hold Mouse5 | Selects cycle |
 | Middle-click | Activates the selected action on the focused window |
+| Hold Ctrl+Shift + scroll | Makes the focused window bigger (up) or smaller (down) |
 
 Mouse4 is the back thumb button and Mouse5 the forward one, on most mice. If both
 are held, pull wins. The taskbar, desktop icons, tool windows and very small UI
@@ -66,6 +86,9 @@ Choose **More info**, then **Run anyway**.
 - **Show where the window landed** - on by default. A brief outline with the
   monitor's number appears where the window landed, fading out over about half a
   second. Turn it off for a silent move.
+- **Size after a move** - how big a moved window is on its new monitor. **Keep its
+  share of the screen** (the default) is the behaviour described above; the others
+  land every moved window at that fraction of the screen, whatever its size before.
 - **About** - shows the controls.
 - **Exit**
 
@@ -75,6 +98,10 @@ A low-level mouse hook (`WH_MOUSE_LL`) sees every mouse button press system-wide
 When a side button goes down, WindowMover notes which window has focus. When the
 middle button is clicked, it checks which side button is still held: Mouse4 means
 pull and Mouse5 means cycle. If both side buttons were released, nothing moves.
+A wheel turn while Ctrl and Shift are both down (read with `GetAsyncKeyState`)
+resizes the focused window instead of scrolling. The resize is posted to the
+window's own thread (`SWP_ASYNCWINDOWPOS`) rather than waited on, so an app that
+is slow to repaint cannot hold up the mouse.
 
 A maximized window ignores new bounds, so it is restored, moved and maximized
 again, and Windows animates each step. Some apps resize themselves when they land
@@ -104,8 +131,8 @@ Inside `WindowMover.App`, one folder per job:
 
 | Folder | What is in it |
 |---|---|
-| `Input/` | `MouseGestureHook` - the low-level mouse hook, turning button events into a move |
-| `Moving/` | `MovableWindowCheck` (may this window be moved), `MoveTargetBounds` (where it lands), `WindowMove` (the move itself), `WindowTransparency` (hiding it on the way), `MoveSettleWatcher` (what happens after, until it stops changing) |
+| `Input/` | `MouseGestureHook` - the low-level mouse hook, turning button and wheel events into a move or a resize |
+| `Moving/` | `MovableWindowCheck` (may this window be moved), `MoveTargetBounds` (where it lands), `WindowMove` (the move itself), `WindowResize` (Ctrl+Shift + wheel), `WindowTransparency` (hiding it on the way), `MoveSettleWatcher` (what happens after, until it stops changing) |
 | `Feedback/` | `MoveIndicator` - the outline drawn where the window landed |
 | `Tray/` | `SystemTrayIcon`, `UserSettings`, `StartupRegistry` |
 | `Win32/` | `NativeMethods` - every P/Invoke in the app |
@@ -150,6 +177,10 @@ dotnet publish WindowMover.App/WindowMover.App.csproj -c Release -r win-x64 --se
 
 Both come out as `WindowMover.App.exe`, in `publish/small/` and
 `publish/standalone/`; they are renamed when uploaded.
+
+## Changes
+
+What each release added is in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

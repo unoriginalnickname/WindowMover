@@ -10,14 +10,18 @@ internal static class NativeMethods
     public const int WM_MBUTTONDOWN = 0x0207;        // Middle mouse button pressed
     public const int WM_XBUTTONDOWN = 0x020B;        // Extra mouse button (4 or 5) pressed
     public const int WM_XBUTTONUP = 0x020C;          // Extra mouse button (4 or 5) released
+    public const int WM_MOUSEWHEEL = 0x020A;         // Vertical wheel turned
     public const int XBUTTON1 = 0x0001;              // Mouse button 4 identifier
     public const int XBUTTON2 = 0x0002;              // Mouse button 5 identifier
+    public const int VK_SHIFT = 0x10;                // Either Shift key
+    public const int VK_CONTROL = 0x11;              // Either Ctrl key
 
     // Window Management Constants
     public const int SW_RESTORE = 9;                 // Restore window from maximized/minimized
     public const int SW_MAXIMIZE = 3;                // Maximize window
     public const uint SWP_NOZORDER = 0x0004;         // Don't change Z-order when repositioning
     public const uint SWP_NOACTIVATE = 0x0010;       // Don't activate window when repositioning
+    public const uint SWP_ASYNCWINDOWPOS = 0x4000;   // Post the change to the window's thread instead of waiting on it
 
     // Window style constants
     public const int GWL_EXSTYLE = -20;              // Extended window style index
@@ -72,6 +76,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool UnhookWindowsHookEx(IntPtr hhk);
     [DllImport("user32.dll")] public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
     // SetLastError: a move that "just doesn't happen" shows up here as a plain false return -
     // only the error code says whether Windows refused it (e.g. UIPI on a higher-integrity

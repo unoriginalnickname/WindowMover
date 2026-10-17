@@ -90,4 +90,28 @@ public static class WindowPlacement
     // correction step, instead of always paying for one.
     public static Size DetermineTargetSize(Rectangle sourceWorkingArea, Size currentSize, Rectangle targetWorkingArea) =>
         ClampToMonitor(ProportionalSize(sourceWorkingArea, currentSize, targetWorkingArea), targetWorkingArea);
+
+    // The size picked in the tray's "Size after a move" menu, as a percentage of the target
+    // monitor's working area on each side - 50 is half as wide and half as tall. Every
+    // non-maximized move lands at it, bigger or smaller than the window was, instead of at
+    // its proportional size. A maximized window still lands maximized.
+    public static Size ShareOfScreen(Rectangle targetWorkingArea, int percent) =>
+        new Size(
+            (int)Math.Round(targetWorkingArea.Width * percent / 100.0),
+            (int)Math.Round(targetWorkingArea.Height * percent / 100.0));
+
+    // The same window at a new size, with its centre kept where it was and then pulled back
+    // fully onto the working area if the new size pushed an edge past it. Used when a move
+    // lands at a share of the screen - the window lands where its proportional bounds would
+    // have been centred, so it still goes to the same part of the screen - and by
+    // WindowScaling for the Ctrl+Shift + wheel resize.
+    public static Rectangle ResizedAroundCentre(Rectangle bounds, Size size, Rectangle workingArea)
+    {
+        int x = bounds.X + (bounds.Width - size.Width) / 2;
+        int y = bounds.Y + (bounds.Height - size.Height) / 2;
+        x = Math.Clamp(x, workingArea.X, Math.Max(workingArea.X, workingArea.Right - size.Width));
+        y = Math.Clamp(y, workingArea.Y, Math.Max(workingArea.Y, workingArea.Bottom - size.Height));
+
+        return new Rectangle(x, y, size.Width, size.Height);
+    }
 }

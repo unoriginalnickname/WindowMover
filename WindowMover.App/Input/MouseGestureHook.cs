@@ -2,7 +2,8 @@ using System.Runtime.InteropServices;
 using WindowMover.Core;
 using static NativeMethods;
 
-// The gesture: a side button held, then a middle click. This installs the low-level mouse
+// The gestures: a side button held, then a middle click to move; Ctrl+Shift held, then the
+// wheel to resize. This installs the low-level mouse
 // hook, which Windows calls for every mouse event system-wide, and hands what it sees to
 // ButtonComboTracker (in WindowMover.Core) to say what the combination means. Whatever the
 // tracker decides is a move, WindowMove carries out.
@@ -74,8 +75,30 @@ internal static class MouseGestureHook
                 else if (request.Command == MoveCommand.NextMonitor)
                     WindowMove.ToNextMonitor(request.Window);
             }
+            // Handle the wheel - with Ctrl+Shift held it resizes the focused window instead of
+            // scrolling. Ctrl+Shift rather than Shift alone, which most apps use for scrolling
+            // sideways; taking that over would break it everywhere while the app runs.
+            else if (wParam == (IntPtr)WM_MOUSEWHEEL && IsHeld(VK_CONTROL) && IsHeld(VK_SHIFT))
+            {
+                // Read at the wheel turn: unlike a side button, a held key leaves no moment
+                // earlier on where focus could have been noted
+                IntPtr window = GetForegroundWindow();
+                if (MovableWindowCheck.IsMovable(window))
+                {
+                    // The delta is the high word, signed: positive away from the user (grow),
+                    // negative towards them (shrink)
+                    WindowResize.Scale(window, (short)(hookStruct.mouseData >> 16));
+
+                    // Swallowed rather than passed on: otherwise whatever is under the cursor
+                    // scrolls at the same time as the window changes size
+                    return (IntPtr)1;
+                }
+            }
         }
         // Pass the event to the next hook in the chain
         return CallNextHookEx(hookId, nCode, wParam, lParam);
     }
+
+    // The top bit of GetAsyncKeyState is set while the key is down
+    private static bool IsHeld(int virtualKey) => GetAsyncKeyState(virtualKey) < 0;
 }

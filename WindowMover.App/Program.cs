@@ -1,6 +1,7 @@
 // WindowMover - A system tray utility that moves windows between monitors
 // Controls: Mouse4 + Mouse3 (middle click) = move to cursor's monitor,
-//           Mouse5 + Mouse3 = cycle to next monitor
+//           Mouse5 + Mouse3 = cycle to next monitor,
+//           Ctrl+Shift + wheel = make the window bigger or smaller
 //
 // This file is only the entry point: start everything, run the message loop, stop
 // everything. The rest of the app is one folder per job -
@@ -41,6 +42,7 @@ class Program
         // showing the state it was left in rather than its default.
         WindowTransparency.HideWhileMoving = UserSettings.LoadHideWhileMoving();
         MoveIndicator.Enabled = UserSettings.LoadShowMoveIndicator();
+        MoveTargetBounds.ScreenPercent = UserSettings.LoadMoveScreenPercent();
 
         // Install low-level mouse hook to intercept all mouse events
         MouseGestureHook.Install();

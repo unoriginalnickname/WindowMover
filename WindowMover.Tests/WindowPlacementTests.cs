@@ -255,4 +255,34 @@ public class WindowPlacementTests
 
         Assert.Equal(1080, size.Height);
     }
+
+    [Fact]
+    public void A_share_of_the_screen_is_that_percentage_of_each_side()
+    {
+        var size = WindowPlacement.ShareOfScreen(new Rectangle(1920, 0, 1920, 1040), 50);
+
+        Assert.Equal(new Size(960, 520), size);
+    }
+
+    [Fact]
+    public void A_window_resized_for_a_move_keeps_its_centre()
+    {
+        // A window filling most of the right half shrinks to a quarter of the screen and
+        // stays centred where it was, still on the right half.
+        var screen = new Rectangle(0, 0, 1920, 1080);
+
+        var bounds = WindowPlacement.ResizedAroundCentre(new Rectangle(1000, 100, 800, 800), new Size(480, 270), screen);
+
+        Assert.Equal(new Rectangle(1160, 365, 480, 270), bounds);
+    }
+
+    [Fact]
+    public void A_window_grown_for_a_move_is_pulled_back_onto_the_screen()
+    {
+        var screen = new Rectangle(0, 0, 1920, 1080);
+
+        var bounds = WindowPlacement.ResizedAroundCentre(new Rectangle(1700, 900, 200, 150), new Size(960, 540), screen);
+
+        Assert.Equal(new Rectangle(960, 540, 960, 540), bounds);
+    }
 }

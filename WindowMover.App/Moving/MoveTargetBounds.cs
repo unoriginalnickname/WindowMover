@@ -13,6 +13,11 @@ internal static class MoveTargetBounds
     private const int FallbackWidth = 800;
     private const int FallbackHeight = 600;
 
+    // The tray's "Size after a move" choice: 0 keeps the window's proportional size, anything
+    // else is the percentage of the target screen it lands at (WindowPlacement.ShareOfScreen).
+    public const int KeepShare = 0;
+    public static int ScreenPercent { get; set; } = KeepShare;
+
     // The window lands at the same relative position it had on its source monitor, at the
     // same percentage of screen size it had before, so it neither jumps to an unrelated spot
     // nor looks tiny/oversized crossing between differently sized monitors - see
@@ -45,6 +50,11 @@ internal static class MoveTargetBounds
         // WindowPlacement.DetermineTargetSize, in WindowMover.Core where it can be unit tested.
         Size size = WindowPlacement.DetermineTargetSize(sourceWorkingArea, currentBounds.Size, target.WorkingArea);
         Rectangle bounds = WindowPlacement.ProportionalPosition(sourceWorkingArea, currentBounds, target.WorkingArea, size);
+
+        // A fixed share of the screen replaces the size, not the place: the window is centred
+        // on where it would have landed at its proportional size.
+        if (ScreenPercent != KeepShare)
+            bounds = WindowPlacement.ResizedAroundCentre(bounds, WindowPlacement.ShareOfScreen(target.WorkingArea, ScreenPercent), target.WorkingArea);
 
         return (bounds, CrossesRealDpiBoundary(hwnd, target.WorkingArea));
     }

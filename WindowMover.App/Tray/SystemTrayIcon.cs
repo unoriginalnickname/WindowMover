@@ -50,13 +50,38 @@ internal static class SystemTrayIcon
                 return true;
             }));
 
+        // For when a window that filled most of one screen is more than wanted on the next:
+        // every non-maximized move lands at the picked share of the target screen instead.
+        // One choice at a time, so the items tick like radio buttons rather than toggling.
+        var moveSize = new ToolStripMenuItem("Size after a move");
+        foreach (var (label, percent) in new[]
+        {
+            ("Keep its share of the screen", MoveTargetBounds.KeepShare),
+            ("Three-quarters of the screen", 75),
+            ("Two-thirds of the screen", 67),
+            ("Half the screen", 50),
+            ("A third of the screen", 33),
+        })
+        {
+            var item = new ToolStripMenuItem(label) { Checked = MoveTargetBounds.ScreenPercent == percent };
+            item.Click += (s, e) =>
+            {
+                MoveTargetBounds.ScreenPercent = percent;
+                UserSettings.SaveMoveScreenPercent(percent);
+                foreach (ToolStripMenuItem other in moveSize.DropDownItems) other.Checked = other == item;
+            };
+            moveSize.DropDownItems.Add(item);
+        }
+        trayMenu.Items.Add(moveSize);
+
         trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("About", null, (s, e) => MessageBox.Show(
             "WindowMover\n\n" +
             "Left-click: put a window in focus\n" +
             "Hold Mouse4: select pull (to the monitor your cursor is on)\n" +
             "Hold Mouse5: select cycle (to the next monitor)\n" +
-            "Middle-click: activate the selected action",
+            "Middle-click: activate the selected action\n" +
+            "Hold Ctrl+Shift and scroll: make the focused window bigger or smaller",
             "About", MessageBoxButtons.OK, MessageBoxIcon.Information));
         trayMenu.Items.Add(new ToolStripSeparator());
 
