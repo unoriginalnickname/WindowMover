@@ -5,7 +5,7 @@ mouse, and resizes them in place.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/pull-window-dark.svg">
-  <img src="docs/pull-window-light.svg" alt="Two monitors. A blue window on the left monitor is pulled to the right monitor by clicking its taskbar icon, holding Mouse4 and middle-clicking. Then the left monitor is turned off and the same thing pulls a red window out of it.">
+  <img src="docs/pull-window-light.svg" alt="A mouse, four steps and two monitors. With the cursor on the left monitor, a blue window on the right monitor is pulled over by clicking its taskbar icon, holding Mouse4, middle-clicking and releasing Mouse4. Then the right monitor is switched off and the same steps pull a red window out of it.">
 </picture>
 
 ## What it does
