@@ -7,356 +7,515 @@
     .cur { transform: translate(22px, 0); }
     .selr, .off2, .windim, .redvis, .head2 { opacity: 1; }
     .hit, .hit2, .ring1, .ring1b, .left, .wheel, .side, .xact, .sel, .winvis, .ghost2, .ghostf, .led2on, .head1, .finger,
-    .st1, .st2, .st3, .st4, .lead1, .lead2, .lead3, .lead4, .icon1, .icon2, .path1, .path2 { opacity: 0; }
+    .st1, .st2, .st3, .st4, .lead1, .lead2, .lead3, .lead4, .icon1, .icon2, .path1, .path2, .tap1, .tap2, .tapp, .hand, .pgbar { opacity: 0; }
     .ring1, .ring1b { transform-box: fill-box; transform-origin: center; }
     @media (prefers-reduced-motion: no-preference) {
-      .cur    { animation: cur 23s infinite; }
-      .head1  { animation: head1 23s infinite; }
-      .head2  { animation: head2 23s infinite; }
-      .st1 { animation: step1 23s infinite; }
-      .st2 { animation: step2 23s infinite; }
-      .st3 { animation: step3 23s infinite; }
-      .st4 { animation: step4 23s infinite; }
-      .lead1 { animation: lead1 23s infinite; }
-      .lead2 { animation: lead2 23s infinite; }
-      .lead3 { animation: lead3 23s infinite; }
-      .lead4 { animation: lead4 23s infinite; }
-      .icon1 { animation: icon1 23s infinite; }
-      .icon2 { animation: icon2 23s infinite; }
-      .path1 { animation: path1 23s infinite; }
-      .path2 { animation: path2 23s infinite; }
-      .side  { animation: side 23s infinite; }
-      .left  { animation: left 23s infinite; }
-      .wheel { animation: wheel 23s infinite; }
-      .ring1 { animation: ring1 23s infinite; }
-      .ring1b { animation: ring1b 23s infinite; }
-      .sel    { animation: sel 23s infinite; }
-      .selr   { animation: selr 23s infinite; }
-      .xact   { animation: xact 23s infinite; }
-      .windim { animation: windim 23s infinite; }
-      .winvis { animation: winvis 23s infinite; }
-      .win    { animation: hop 23s infinite; }
-      .hit    { animation: landed 23s infinite; }
-      .off2   { animation: off2 23s infinite; }
-      .led2on { animation: led2on 23s infinite; }
-      .finger { animation: finger 23s infinite; }
-      .ghost2 { animation: ghost2 23s infinite; }
-      .ghostf { animation: ghostf 23s infinite; }
-      .redvis { animation: redvis 23s infinite; }
-      .win2   { animation: hop2 23s infinite; }
-      .hit2   { animation: landed2 23s infinite; }
-      .loop   { animation: loop 23s infinite; }
+      .pgbar { opacity: 1; }
+      .pg0 { animation: pg0 44.4s infinite; }
+      .pg1 { animation: pg1 44.4s infinite; }
+      .pg2 { animation: pg2 44.4s infinite; }
+      .pg3 { animation: pg3 44.4s infinite; }
+      .pg4 { animation: pg4 44.4s infinite; }
+      .pg5 { animation: pg5 44.4s infinite; }
+      .pg6 { animation: pg6 44.4s infinite; }
+      .pg7 { animation: pg7 44.4s infinite; }
+      .pg8 { animation: pg8 44.4s infinite; }
+      .tap1  { animation: tap1 44.4s infinite; }
+      .tap2  { animation: tap2 44.4s infinite; }
+      .tapp  { animation: tapp 44.4s infinite; }
+      .hand  { animation: hand 44.4s infinite; }
+      .arrow { animation: arrow 44.4s infinite; }
+      .cur    { animation: cur 44.4s infinite; }
+      .head1  { animation: head1 44.4s infinite; }
+      .head2  { animation: head2 44.4s infinite; }
+      .st1 { animation: step1 44.4s infinite; }
+      .st2 { animation: step2 44.4s infinite; }
+      .st3 { animation: step3 44.4s infinite; }
+      .st4 { animation: step4 44.4s infinite; }
+      .lead1 { animation: lead1 44.4s infinite; }
+      .lead2 { animation: lead2 44.4s infinite; }
+      .lead3 { animation: lead3 44.4s infinite; }
+      .lead4 { animation: lead4 44.4s infinite; }
+      .icon1 { animation: icon1 44.4s infinite; }
+      .icon2 { animation: icon2 44.4s infinite; }
+      .path1 { animation: path1 44.4s infinite; }
+      .path2 { animation: path2 44.4s infinite; }
+      .side  { animation: side 44.4s infinite; }
+      .left  { animation: left 44.4s infinite; }
+      .wheel { animation: wheel 44.4s infinite; }
+      .ring1 { animation: ring1 44.4s infinite; }
+      .ring1b { animation: ring1b 44.4s infinite; }
+      .sel    { animation: sel 44.4s infinite; }
+      .selr   { animation: selr 44.4s infinite; }
+      .xact   { animation: xact 44.4s infinite; }
+      .windim { animation: windim 44.4s infinite; }
+      .winvis { animation: winvis 44.4s infinite; }
+      .win    { animation: hop 44.4s infinite; }
+      .hit    { animation: landed 44.4s infinite; }
+      .off2   { animation: off2 44.4s infinite; }
+      .led2on { animation: led2on 44.4s infinite; }
+      .finger { animation: finger 44.4s infinite; }
+      .ghost2 { animation: ghost2 44.4s infinite; }
+      .ghostf { animation: ghostf 44.4s infinite; }
+      .redvis { animation: redvis 44.4s infinite; }
+      .win2   { animation: hop2 44.4s infinite; }
+      .hit2   { animation: landed2 44.4s infinite; }
+      .loop   { animation: loop 44.4s infinite; }
     }
     @keyframes cur {
       0% { opacity: 1; transform: translate(96px, -84px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      3.91% { opacity: 1; transform: translate(96px, -84px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      6.52% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      58.26% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      60.43% { opacity: 1; transform: translate(22px, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      89.57% { opacity: 1; transform: translate(22px, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      93.04% { opacity: 0; transform: translate(-60px, 70px); }
+      2.25% { opacity: 1; transform: translate(96px, -84px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      3.6% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      55.18% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      56.31% { opacity: 1; transform: translate(22px, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      95.95% { opacity: 1; transform: translate(22px, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      97.75% { opacity: 0; transform: translate(-60px, 70px); }
       100% { opacity: 0; transform: translate(-60px, 70px); }
     }
     @keyframes head1 {
       0% { opacity: 1; }
-      49.13% { opacity: 1; }
-      50% { opacity: 0; }
+      43.69% { opacity: 1; }
+      44.14% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes head2 {
       0% { opacity: 0; }
-      50% { opacity: 0; }
-      50.87% { opacity: 1; }
+      44.14% { opacity: 0; }
+      44.59% { opacity: 1; }
       100% { opacity: 1; }
     }
     @keyframes step1 {
       0% { opacity: 0; }
-      6.96% { opacity: 0; }
-      7.83% { opacity: 1; }
-      16.52% { opacity: 1; }
-      17.39% { opacity: 0; }
-      59.13% { opacity: 0; }
-      60% { opacity: 1; }
-      66.09% { opacity: 1; }
-      66.96% { opacity: 0; }
+      2.25% { opacity: 0; }
+      2.7% { opacity: 1; }
+      12.61% { opacity: 1; }
+      13.06% { opacity: 0; }
+      55.18% { opacity: 0; }
+      55.63% { opacity: 1; }
+      65.32% { opacity: 1; }
+      65.77% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes step2 {
       0% { opacity: 0; }
-      17.39% { opacity: 0; }
-      18.26% { opacity: 1; }
-      26.96% { opacity: 1; }
-      27.83% { opacity: 0; }
-      66.96% { opacity: 0; }
-      67.83% { opacity: 1; }
-      72.61% { opacity: 1; }
-      73.48% { opacity: 0; }
+      13.06% { opacity: 0; }
+      13.51% { opacity: 1; }
+      22.07% { opacity: 1; }
+      22.52% { opacity: 0; }
+      65.77% { opacity: 0; }
+      66.22% { opacity: 1; }
+      74.77% { opacity: 1; }
+      75.23% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes step3 {
       0% { opacity: 0; }
-      27.83% { opacity: 0; }
-      28.7% { opacity: 1; }
-      39.13% { opacity: 1; }
-      40% { opacity: 0; }
-      73.48% { opacity: 0; }
-      74.35% { opacity: 1; }
-      82.61% { opacity: 1; }
-      83.48% { opacity: 0; }
+      22.52% { opacity: 0; }
+      22.97% { opacity: 1; }
+      33.78% { opacity: 1; }
+      34.23% { opacity: 0; }
+      75.23% { opacity: 0; }
+      75.68% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.94% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes step4 {
       0% { opacity: 0; }
-      40% { opacity: 0; }
-      40.87% { opacity: 1; }
-      47.83% { opacity: 1; }
-      48.7% { opacity: 0; }
-      83.48% { opacity: 0; }
-      84.35% { opacity: 1; }
-      89.57% { opacity: 1; }
-      90.43% { opacity: 0; }
+      34.23% { opacity: 0; }
+      34.68% { opacity: 1; }
+      43.24% { opacity: 1; }
+      43.69% { opacity: 0; }
+      86.94% { opacity: 0; }
+      87.39% { opacity: 1; }
+      95.95% { opacity: 1; }
+      96.4% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes lead1 {
       0% { opacity: 0; }
-      6.96% { opacity: 0; }
-      7.83% { opacity: 1; }
-      16.52% { opacity: 1; }
-      17.39% { opacity: 0; }
-      59.13% { opacity: 0; }
-      60% { opacity: 1; }
-      66.09% { opacity: 1; }
-      66.96% { opacity: 0; }
+      2.25% { opacity: 0; }
+      2.7% { opacity: 1; }
+      12.61% { opacity: 1; }
+      13.06% { opacity: 0; }
+      55.18% { opacity: 0; }
+      55.63% { opacity: 1; }
+      65.32% { opacity: 1; }
+      65.77% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes lead2 {
       0% { opacity: 0; }
-      17.39% { opacity: 0; }
-      18.26% { opacity: 1; }
-      39.13% { opacity: 1; }
-      40% { opacity: 0; }
-      66.96% { opacity: 0; }
-      67.83% { opacity: 1; }
-      82.61% { opacity: 1; }
-      83.48% { opacity: 0; }
+      13.06% { opacity: 0; }
+      13.51% { opacity: 1; }
+      33.78% { opacity: 1; }
+      34.23% { opacity: 0; }
+      65.77% { opacity: 0; }
+      66.22% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.94% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes lead3 {
       0% { opacity: 0; }
-      27.83% { opacity: 0; }
-      28.7% { opacity: 1; }
-      39.13% { opacity: 1; }
-      40% { opacity: 0; }
-      73.48% { opacity: 0; }
-      74.35% { opacity: 1; }
-      82.61% { opacity: 1; }
-      83.48% { opacity: 0; }
+      22.52% { opacity: 0; }
+      22.97% { opacity: 1; }
+      33.78% { opacity: 1; }
+      34.23% { opacity: 0; }
+      75.23% { opacity: 0; }
+      75.68% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.94% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes lead4 {
       0% { opacity: 0; }
-      40% { opacity: 0; }
-      40.87% { opacity: 1; }
-      47.83% { opacity: 1; }
-      48.7% { opacity: 0; }
-      83.48% { opacity: 0; }
-      84.35% { opacity: 1; }
-      89.57% { opacity: 1; }
-      90.43% { opacity: 0; }
+      34.23% { opacity: 0; }
+      34.68% { opacity: 1; }
+      43.24% { opacity: 1; }
+      43.69% { opacity: 0; }
+      86.94% { opacity: 0; }
+      87.39% { opacity: 1; }
+      95.95% { opacity: 1; }
+      96.4% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes icon1 {
       0% { opacity: 0; }
-      6.96% { opacity: 0; }
-      7.83% { opacity: 1; }
-      16.52% { opacity: 1; }
-      17.39% { opacity: 0; }
+      2.25% { opacity: 0; }
+      2.7% { opacity: 1; }
+      12.61% { opacity: 1; }
+      13.06% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes icon2 {
       0% { opacity: 0; }
-      59.13% { opacity: 0; }
-      60% { opacity: 1; }
-      66.09% { opacity: 1; }
-      66.96% { opacity: 0; }
+      55.18% { opacity: 0; }
+      55.63% { opacity: 1; }
+      65.32% { opacity: 1; }
+      65.77% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes path1 {
       0% { opacity: 0; }
-      30% { opacity: 0; }
-      30.87% { opacity: 1; }
-      34.78% { opacity: 1; }
-      35.65% { opacity: 0; }
+      23.42% { opacity: 0; }
+      23.87% { opacity: 1; }
+      33.78% { opacity: 1; }
+      34.23% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes path2 {
       0% { opacity: 0; }
-      75.22% { opacity: 0; }
-      76.09% { opacity: 1; }
-      79.57% { opacity: 1; }
-      80.43% { opacity: 0; }
+      76.13% { opacity: 0; }
+      76.58% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.94% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes side {
       0% { opacity: 0; }
-      19.13% { opacity: 0; }
-      19.57% { opacity: 1; }
-      42.17% { opacity: 1; }
-      42.61% { opacity: 0; }
-      68.26% { opacity: 0; }
-      68.7% { opacity: 1; }
-      85.22% { opacity: 1; }
-      85.65% { opacity: 0; }
+      13.96% { opacity: 0; }
+      14.19% { opacity: 1; }
+      35.14% { opacity: 1; }
+      35.36% { opacity: 0; }
+      66.67% { opacity: 0; }
+      66.89% { opacity: 1; }
+      87.84% { opacity: 1; }
+      88.06% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes left {
       0% { opacity: 0; }
-      9.57% { opacity: 0; }
-      10% { opacity: 1; }
-      13.48% { opacity: 1; }
-      13.91% { opacity: 0; }
-      61.74% { opacity: 0; }
-      62.17% { opacity: 1; }
-      64.78% { opacity: 1; }
-      65.22% { opacity: 0; }
+      4.05% { opacity: 0; }
+      4.28% { opacity: 1; }
+      12.61% { opacity: 1; }
+      12.84% { opacity: 0; }
+      56.76% { opacity: 0; }
+      56.98% { opacity: 1; }
+      65.32% { opacity: 1; }
+      65.54% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes wheel {
       0% { opacity: 0; }
-      30% { opacity: 0; }
-      30.22% { opacity: 1; }
-      32.61% { opacity: 1; }
-      32.83% { opacity: 0; }
-      75.22% { opacity: 0; }
-      75.43% { opacity: 1; }
-      77.39% { opacity: 1; }
-      77.61% { opacity: 0; }
+      23.42% { opacity: 0; }
+      23.65% { opacity: 1; }
+      33.78% { opacity: 1; }
+      34.01% { opacity: 0; }
+      76.13% { opacity: 0; }
+      76.35% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.71% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes ring1 {
       0% { opacity: 0; transform: scale(1); }
-      9.57% { opacity: 0; transform: scale(1); }
-      9.78% { opacity: 1; transform: scale(1); }
-      14.35% { opacity: 0; transform: scale(3.5); }
+      4.05% { opacity: 0; transform: scale(1); }
+      4.17% { opacity: 1; transform: scale(1); }
+      6.53% { opacity: 0; transform: scale(3.5); }
       100% { opacity: 0; transform: scale(3.5); }
     }
     @keyframes ring1b {
       0% { opacity: 0; transform: scale(1); }
-      61.74% { opacity: 0; transform: scale(1); }
-      61.96% { opacity: 1; transform: scale(1); }
-      65.65% { opacity: 0; transform: scale(3.5); }
+      56.76% { opacity: 0; transform: scale(1); }
+      56.87% { opacity: 1; transform: scale(1); }
+      58.78% { opacity: 0; transform: scale(3.5); }
       100% { opacity: 0; transform: scale(3.5); }
+    }
+    @keyframes tap1 {
+      0% { opacity: 0; }
+      4.05% { opacity: 0; }
+      4.28% { opacity: 1; }
+      12.61% { opacity: 1; }
+      12.84% { opacity: 0; }
+      23.42% { opacity: 0; }
+      23.65% { opacity: 1; }
+      33.78% { opacity: 1; }
+      34.01% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    @keyframes tap2 {
+      0% { opacity: 0; }
+      56.76% { opacity: 0; }
+      56.98% { opacity: 1; }
+      65.32% { opacity: 1; }
+      65.54% { opacity: 0; }
+      76.13% { opacity: 0; }
+      76.35% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.71% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    @keyframes tapp {
+      0% { opacity: 0; }
+      45.95% { opacity: 0; }
+      46.17% { opacity: 1; }
+      54.73% { opacity: 1; }
+      54.95% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    @keyframes hand {
+      0% { opacity: 0; }
+      4.05% { opacity: 0; }
+      4.28% { opacity: 1; }
+      12.61% { opacity: 1; }
+      12.84% { opacity: 0; }
+      23.42% { opacity: 0; }
+      23.65% { opacity: 1; }
+      33.78% { opacity: 1; }
+      34.01% { opacity: 0; }
+      56.76% { opacity: 0; }
+      56.98% { opacity: 1; }
+      65.32% { opacity: 1; }
+      65.54% { opacity: 0; }
+      76.13% { opacity: 0; }
+      76.35% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.71% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    @keyframes arrow {
+      0% { opacity: 1; }
+      4.05% { opacity: 1; }
+      4.28% { opacity: 0; }
+      12.61% { opacity: 0; }
+      12.84% { opacity: 1; }
+      23.42% { opacity: 1; }
+      23.65% { opacity: 0; }
+      33.78% { opacity: 0; }
+      34.01% { opacity: 1; }
+      56.76% { opacity: 1; }
+      56.98% { opacity: 0; }
+      65.32% { opacity: 0; }
+      65.54% { opacity: 1; }
+      76.13% { opacity: 1; }
+      76.35% { opacity: 0; }
+      86.49% { opacity: 0; }
+      86.71% { opacity: 1; }
+      100% { opacity: 1; }
     }
     @keyframes sel {
       0% { opacity: 0; }
-      9.57% { opacity: 0; }
-      10.43% { opacity: 1; }
-      61.74% { opacity: 1; }
-      63.04% { opacity: 0; }
+      4.05% { opacity: 0; }
+      4.5% { opacity: 1; }
+      56.76% { opacity: 1; }
+      57.43% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes selr {
       0% { opacity: 0; }
-      61.74% { opacity: 0; }
-      62.61% { opacity: 1; }
+      56.76% { opacity: 0; }
+      57.21% { opacity: 1; }
       100% { opacity: 1; }
     }
     @keyframes xact {
       0% { opacity: 1; }
-      9.57% { opacity: 1; }
-      10.87% { opacity: 0; }
+      4.05% { opacity: 1; }
+      4.73% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes windim {
       0% { opacity: 1; }
-      9.57% { opacity: 1; }
-      10.87% { opacity: 0; }
-      61.74% { opacity: 0; }
-      63.04% { opacity: 1; }
+      4.05% { opacity: 1; }
+      4.73% { opacity: 0; }
+      56.76% { opacity: 0; }
+      57.43% { opacity: 1; }
       100% { opacity: 1; }
     }
     @keyframes winvis {
       0% { opacity: 0; }
-      9.57% { opacity: 0; }
-      10.87% { opacity: 1; }
-      61.74% { opacity: 1; }
-      63.04% { opacity: 0; }
+      4.05% { opacity: 0; }
+      4.73% { opacity: 1; }
+      56.76% { opacity: 1; }
+      57.43% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes hop {
       0% { transform: translateX(254px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      32.17% { transform: translateX(254px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      34.78% { transform: translateX(0); }
+      24.55% { transform: translateX(254px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      25.9% { transform: translateX(0); }
       100% { transform: translateX(0); }
     }
     @keyframes landed {
       0% { opacity: 0; }
-      30% { opacity: 0; }
-      30.22% { opacity: 1; }
-      35.65% { opacity: 1; }
-      35.87% { opacity: 0; }
+      23.42% { opacity: 0; }
+      23.54% { opacity: 1; }
+      33.78% { opacity: 1; }
+      33.9% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes off2 {
       0% { opacity: 0; }
-      53.48% { opacity: 0; }
-      54.78% { opacity: 1; }
+      46.17% { opacity: 0; }
+      46.85% { opacity: 1; }
       100% { opacity: 1; }
     }
     @keyframes led2on {
       0% { opacity: 1; }
-      53.48% { opacity: 1; }
-      54.78% { opacity: 0; }
+      46.17% { opacity: 1; }
+      46.85% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes finger {
       0% { opacity: 0; transform: translate(34px, 70px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      50.43% { opacity: 0; transform: translate(34px, 70px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      53.04% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      54.78% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      57.39% { opacity: 0; transform: translate(34px, 70px); }
+      44.59% { opacity: 0; transform: translate(34px, 70px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      45.95% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      47.3% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      48.65% { opacity: 0; transform: translate(34px, 70px); }
       100% { opacity: 0; transform: translate(34px, 70px); }
     }
     @keyframes ghost2 {
       0% { opacity: 0; }
-      54.78% { opacity: 0; }
-      56.09% { opacity: 1; }
-      61.74% { opacity: 1; }
-      63.04% { opacity: 0; }
+      46.85% { opacity: 0; }
+      47.52% { opacity: 1; }
+      56.76% { opacity: 1; }
+      57.43% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes ghostf {
       0% { opacity: 0; }
-      61.74% { opacity: 0; }
-      63.04% { opacity: 1; }
-      76.96% { opacity: 1; }
-      79.57% { opacity: 0; }
+      56.76% { opacity: 0; }
+      57.43% { opacity: 1; }
+      77.25% { opacity: 1; }
+      78.6% { opacity: 0; }
       100% { opacity: 0; }
     }
     @keyframes redvis {
       0% { opacity: 0; }
-      76.96% { opacity: 0; }
-      79.13% { opacity: 1; }
+      77.25% { opacity: 0; }
+      78.38% { opacity: 1; }
       100% { opacity: 1; }
     }
     @keyframes hop2 {
       0% { transform: translateX(254px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      76.96% { transform: translateX(254px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
-      79.57% { transform: translateX(0); }
+      77.25% { transform: translateX(254px); animation-timing-function: cubic-bezier(0.2, 0, 0.38, 0.9); }
+      78.6% { transform: translateX(0); }
       100% { transform: translateX(0); }
     }
     @keyframes landed2 {
       0% { opacity: 0; }
-      75.22% { opacity: 0; }
-      75.43% { opacity: 1; }
-      80.43% { opacity: 1; }
-      80.65% { opacity: 0; }
+      76.13% { opacity: 0; }
+      76.24% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.6% { opacity: 0; }
       100% { opacity: 0; }
+    }
+    @keyframes pg0 {
+      0% { opacity: 0; }
+      2.25% { opacity: 0; }
+      2.7% { opacity: 1; }
+      12.61% { opacity: 1; }
+      13.06% { opacity: 0.4; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes pg1 {
+      0% { opacity: 0; }
+      13.06% { opacity: 0; }
+      13.51% { opacity: 1; }
+      22.07% { opacity: 1; }
+      22.52% { opacity: 0.4; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes pg2 {
+      0% { opacity: 0; }
+      22.52% { opacity: 0; }
+      22.97% { opacity: 1; }
+      33.78% { opacity: 1; }
+      34.23% { opacity: 0.4; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes pg3 {
+      0% { opacity: 0; }
+      34.23% { opacity: 0; }
+      34.68% { opacity: 1; }
+      43.24% { opacity: 1; }
+      43.69% { opacity: 0.4; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes pg4 {
+      0% { opacity: 0; }
+      44.14% { opacity: 0; }
+      44.59% { opacity: 1; }
+      54.73% { opacity: 1; }
+      55.18% { opacity: 0.4; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes pg5 {
+      0% { opacity: 0; }
+      55.18% { opacity: 0; }
+      55.63% { opacity: 1; }
+      65.32% { opacity: 1; }
+      65.77% { opacity: 0.4; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes pg6 {
+      0% { opacity: 0; }
+      65.77% { opacity: 0; }
+      66.22% { opacity: 1; }
+      74.77% { opacity: 1; }
+      75.23% { opacity: 0.4; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes pg7 {
+      0% { opacity: 0; }
+      75.23% { opacity: 0; }
+      75.68% { opacity: 1; }
+      86.49% { opacity: 1; }
+      86.94% { opacity: 0.4; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes pg8 {
+      0% { opacity: 0; }
+      86.94% { opacity: 0; }
+      87.39% { opacity: 1; }
+      95.95% { opacity: 1; }
+      96.4% { opacity: 0.4; }
+      100% { opacity: 0.4; }
     }
     @keyframes loop {
       0% { opacity: 0; }
-      2.17% { opacity: 1; }
-      96.52% { opacity: 1; }
+      1.13% { opacity: 1; }
+      98.2% { opacity: 1; }
       100% { opacity: 0; }
     }
   </style>
@@ -391,6 +550,7 @@
     <circle cx="160" cy="147" r="3" fill="#6e7681"/><text x="170" y="152" fill="#6e7681">…middle-click to relocate the window</text><g class="st3"><circle cx="160" cy="147" r="3.5" fill="#f0883e"/><text x="170" y="152" fill="#f0f6fc">…middle-click to relocate the window</text></g>
     <circle cx="160" cy="182" r="3" fill="#6e7681"/><text x="170" y="187" fill="#6e7681">Now you can release Mouse4</text><g class="st4"><circle cx="160" cy="182" r="3.5" fill="#f0883e"/><text x="170" y="187" fill="#f0f6fc">Now you can release Mouse4</text></g>
   </g>
+  <g class="pgbar"><rect x="156" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="182" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="208" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="234" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="270" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="306" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="332" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="358" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect x="384" y="226" width="22" height="5" rx="2.5" fill="#6e7681" opacity="0.45"/><rect class="pg0" x="156" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg1" x="182" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg2" x="208" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg3" x="234" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg4" x="270" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg5" x="306" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg6" x="332" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg7" x="358" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/><rect class="pg8" x="384" y="226" width="22" height="5" rx="2.5" fill="#f0883e"/></g>
   <g fill="none" stroke="#f0883e" stroke-width="1.6" stroke-linejoin="round">
     <polyline class="lead1" points="154,77 55.55,77 55.55,108.6"/>
     <polyline class="lead2" points="154,112 132,112 132,62 12,62 12,181.05 26.8,181.05"/>
@@ -557,7 +717,13 @@
     <!-- click rings (blue icon, then red icon) and the cursor that travels between them -->
     <circle class="ring1" cx="64" cy="169" r="3" fill="none" stroke="#f0883e" stroke-width="1"/>
     <circle class="ring1b" cx="86" cy="169" r="3" fill="none" stroke="#f0883e" stroke-width="1"/>
-    <g class="cur"><polygon points="0,0 0,12 3,9 5.5,14 7.5,13 5,8 9,8" transform="translate(64 169)" fill="#ffffff" stroke="#0d1117" stroke-width="0.6"/></g>
+    <path class="tap1" d="M59.65 166.84 L54.34 165.41 M61.29 164.41 L57.98 160.01 M64.00 163.50 L64.00 158.00 M66.71 164.41 L70.02 160.01 M68.35 166.84 L73.66 165.41" fill="none" stroke="#f0883e" stroke-width="2" stroke-linecap="round"/>
+    <path class="tap2" d="M81.65 166.84 L76.34 165.41 M83.29 164.41 L79.98 160.01 M86.00 163.50 L86.00 158.00 M88.71 164.41 L92.02 160.01 M90.35 166.84 L95.66 165.41" fill="none" stroke="#f0883e" stroke-width="2" stroke-linecap="round"/>
+    <path class="tapp" d="M525.00 190.00 L529.00 190.00 M522.36 196.36 L525.19 199.19 M516.00 199.00 L516.00 203.00 M509.64 196.36 L506.81 199.19 M507.00 190.00 L503.00 190.00 M509.64 183.64 L506.81 180.81 M516.00 181.00 L516.00 177.00 M522.36 183.64 L525.19 180.81" fill="none" stroke="#f0883e" stroke-width="2" stroke-linecap="round"/>
+    <g class="cur"><g transform="translate(64 169)">
+      <polygon class="arrow" points="0,0 0,12 3,9 5.5,14 7.5,13 5,8 9,8" fill="#ffffff" stroke="#0d1117" stroke-width="0.6"/>
+      <g class="hand"><path transform="translate(-4.9 0) scale(0.95)" d="M2.6 13 V2.6 A2.6 2.6 0 0 1 7.8 2.6 V9 A2.1 2.1 0 0 1 12 9.6 A2.1 2.1 0 0 1 16.2 10.4 A2 2 0 0 1 20.2 11.4 V17 Q20.2 24 13.6 24 H10.2 Q5.6 24 3.4 19.6 L0.4 14.6 A1.9 1.9 0 0 1 3.4 12.4 Z M7.8 9 V12.6 M12 9.6 V13 M16.2 10.4 V13.4" fill="#ffffff" stroke="#0d1117" stroke-width="1" stroke-linejoin="round"/></g>
+    </g></g>
 
     <!-- the finger that turns monitor 2 off, its tip on the power button -->
     <g transform="translate(516 190)">

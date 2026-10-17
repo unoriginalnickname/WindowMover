@@ -6,18 +6,17 @@ The SVGs are generated; edit this file, not them. Times below are in seconds.
 It is drawn like the pull-window animation (make_pull_window.py, whose pieces it borrows): the mouse, the
 steps, then one monitor. Ctrl and Shift keys sit above the mouse. The blue window has focus. Ctrl+Shift
 go down, the wheel turns up three notches and the window grows a step at a time, kept on its screen, then
-down six and it shrinks. A dashed outline keeps the size it started at, to measure by.
+down six and it shrinks. A dashed outline keeps the size it started at, to measure by. Each step holds
+for a few seconds once its result shows, and a progress bar under the steps shows where the picture is.
 """
 from pathlib import Path
 import xml.dom.minidom as m
 
 from make_pull_window import (EASE, ORANGE, DESK, TASKBAR, TASK_SEL, FOCUS, BEZEL, BAND, POWER_LIT,
                               ICONS_M1, M1_OTHER, BLUE_LIT, MOX, MOY, MS, at, BULLET_X, TEXT_X, ROWS,
-                              row, LEAD3, MX, THEMES, win)
+                              row, LEAD3, MX, THEMES, win, HOLD, progress)
 
-T = 13.0
 W, H = MX + 283 + 16, 262
-TS = f"{T:g}s infinite"
 
 
 def q(x):
@@ -50,10 +49,25 @@ def shown(name, *spans, fade=0.2):
 
 
 # --- the events (seconds) ----------------------------------------------------------------
-S1, S2, S3, S4, END = 1.0, 2.6, 5.0, 8.6, 10.4   # when each step lights up, and when the last goes out
-KEYS = (1.5, 9.1)            # Ctrl+Shift down, up
-UP = (3.1, 3.5, 3.9)         # the wheel's notches, scrolling up
-DOWN = (5.5, 5.9, 6.3, 6.7, 7.1, 7.5)
+# As in the pull animation, each step holds for HOLD seconds once its result shows, the keys and the
+# wheel still lit, so the chain keys/mouse → step → monitor can be read before the next step.
+S1 = 1.0                     # each step lights up 0.2 s after the one before it goes out
+KEYS_DOWN = S1 + 0.5
+E1 = KEYS_DOWN + 0.1 + HOLD
+S2 = E1 + 0.2
+UP = (S2 + 0.5, S2 + 0.9, S2 + 1.3)   # the wheel's notches, scrolling up
+E2 = UP[-1] + 0.15 + HOLD
+S3 = E2 + 0.2
+DOWN = tuple(S3 + 0.5 + 0.4 * i for i in range(6))
+E3 = DOWN[-1] + 0.15 + HOLD
+S4 = E3 + 0.2
+KEYS_UP = S4 + 0.5
+E4 = KEYS_UP + 0.1 + HOLD
+KEYS = (KEYS_DOWN, KEYS_UP)
+END = E4
+T = E4 + 1.5
+TS = f"{T:g}s infinite"
+SEGMENTS = ((S1, E1), (S2, E2), (S3, E3), (S4, E4))
 
 BLUE = (100, 70, 120, 80)    # the blue window as drawn (BLUE_LIT)
 
@@ -93,20 +107,22 @@ def to_keys(i):
 
 
 TRACKS = [
-    shown("step1", (S1, S2 - 0.2)),
-    shown("step2", (S2, S3 - 0.2)),
-    shown("step3", (S3, S4 - 0.2)),
-    shown("step4", (S4, END)),
-    shown("keys1", (S1, S4 - 0.2)),
-    shown("keys4", (S4, END)),
-    shown("leadup", (S2, S3 - 0.2)),
-    shown("leaddn", (S3, S4 - 0.2)),
+    shown("step1", (S1, E1)),
+    shown("step2", (S2, E2)),
+    shown("step3", (S3, E3)),
+    shown("step4", (S4, E4)),
+    shown("keys1", (S1, E3)),
+    shown("keys4", (S4, E4)),
+    shown("leadup", (S2, E2)),
+    shown("leaddn", (S3, E3)),
     shown("keyon", KEYS, fade=0.1),
-    shown("up", (UP[0] - 0.2, UP[-1] + 0.4), fade=0.1),
-    shown("dn", (DOWN[0] - 0.2, DOWN[-1] + 0.4), fade=0.1),
-    shown("wheel", *[(t, t + 0.2) for t in UP + DOWN], fade=0.05),
+    shown("up", (UP[0] - 0.2, E2), fade=0.1),
+    shown("dn", (DOWN[0] - 0.2, E3), fade=0.1),
+    # the wheel flashes at each notch, then stays lit through the hold after the last one
+    shown("wheel", *[(t, t + 0.2) for t in UP[:-1]], (UP[-1], E2), *[(t, t + 0.2) for t in DOWN[:-1]], (DOWN[-1], E3), fade=0.05),
     shown("was", (UP[0], END)),
     track("grow", GROW),
+    *[op(f"pg{i}", [(0, 0), (a, 0), (a + 0.2, 1), (b, 1), (b + 0.2, 0.4)]) for i, (a, b) in enumerate(SEGMENTS)],
     op("loop", [(0, 0), (0.5, 1), (T - 0.8, 1), (T, 0)]),
 ]
 KF = "".join(TRACKS)
@@ -116,6 +132,7 @@ M1_BACK = win(48, 100, 80, 56, "#f6f8fa", "#c3d2dc")
 
 def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LINE, MOUSE_BTN):
     lead = f'fill="none" stroke="{ORANGE}" stroke-width="1.6" stroke-linejoin="round"'
+    pg_css = "\n".join(f"      .pg{i} {{ animation: pg{i} {TS}; }}" for i in range(len(SEGMENTS)))
     steps = "\n    ".join(
         f'<circle cx="{BULLET_X}" cy="{row(i)}" r="3" fill="{FAINT}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{FAINT}">{s}</text>'
         f'<g class="st{i + 1}"><circle cx="{BULLET_X}" cy="{row(i)}" r="3.5" fill="{ORANGE}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{BRIGHT}">{s}</text></g>'
@@ -130,8 +147,10 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
   <desc id="d">A mouse with Ctrl and Shift keys above it, four steps, and a monitor whose blue window has focus. Ctrl and Shift are held; the wheel scrolls up and the window grows a notch at a time, then scrolls down and it shrinks below the size it started at, which a dashed outline marks. Then Ctrl and Shift are released.</desc>
   <style>
     text {{ font-family: "Segoe UI", Helvetica, Arial, sans-serif; }}
-    .st1, .st2, .st3, .st4, .keys1, .keys4, .leadup, .leaddn, .keyon, .up, .dn, .wheel, .was {{ opacity: 0; }}
+    .st1, .st2, .st3, .st4, .keys1, .keys4, .leadup, .leaddn, .keyon, .up, .dn, .wheel, .was, .pgbar {{ opacity: 0; }}
     @media (prefers-reduced-motion: no-preference) {{
+      .pgbar {{ opacity: 1; }}
+{pg_css}
       .st1 {{ animation: step1 {TS}; }}
       .st2 {{ animation: step2 {TS}; }}
       .st3 {{ animation: step3 {TS}; }}
@@ -179,6 +198,7 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
     <text x="{BULLET_X - 4}" y="48" font-size="16" font-weight="600" fill="{BRIGHT}">Resize the focused window</text>
     {steps}
   </g>
+  {progress(FAINT, len(SEGMENTS))}
   <g {lead}>
     <path class="keys1" d="{to_keys(0)}"/>
     <path class="keys4" d="{to_keys(3)}"/>

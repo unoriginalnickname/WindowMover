@@ -6,6 +6,9 @@ The SVGs are generated; edit this file, not them. Times below are in seconds.
 The picture reads left to right: the mouse, the steps, the two monitors. The cursor is on the left
 monitor, so that is where windows are pulled to. Each step is one line of text with an orange leader
 to the mouse button it uses, lit while that step is happening; nothing zooms and nothing is numbered.
+Each step holds for a few seconds once its result shows (HOLD), with the button it used still lit and, for
+a click or press, a decal where it landed (the cursor turns into a pointing hand, rays at its fingertip), so the chain mouse → step → monitors can be read before the next
+step. A segmented progress bar under the steps shows where in the flow the picture is.
 
 The story, in two passes under their own heading:
   Pass 1. "Both monitors on". The blue window is on the right monitor, unfocused, behind a red one; a
@@ -15,15 +18,14 @@ The story, in two passes under their own heading:
           screen goes black, leaving a grey dotted outline where the red window is. The same four
           steps bring the red window out of the dark monitor. Then the cursor leaves, ending the loop.
 """
+from math import cos, radians, sin
 from pathlib import Path
 import xml.dom.minidom as m
 
-T = 23.0
-DX = 254                     # Monitor 2's offset from Monitor 1, in the monitors' own coordinates
+DX = 254                    # Monitor 2's offset from Monitor 1, in the monitors' own coordinates
 MX = 407                     # where the monitors start: Monitor 1's bezel (x=37 in its own coordinates) lands at 444
 W, H = 283 + DX + MX + 16, 262
 EASE = 'cubic-bezier(0.2, 0, 0.38, 0.9)'
-TS = f"{T:g}s infinite"      # loops; the "loop" track fades the picture out and back in at the seam
 ORANGE = "#f0883e"
 
 
@@ -66,21 +68,56 @@ X0, XDX = 'translateX(0)', f'translateX({DX}px)'
 RING_OFF, RING_ON, RING_END = "opacity: 0; transform: scale(1)", "opacity: 1; transform: scale(1)", "opacity: 0; transform: scale(3.5)"
 
 # --- the events (seconds) ----------------------------------------------------------------
-# Pass 1, the slower one: the viewer is seeing the steps for the first time
-CUR1 = (0.9, 1.5)            # the cursor travels to the blue window's icon
-S1A, S2A, S3A, S4A, END1 = 1.6, 4.0, 6.4, 9.2, 11.0   # when each step lights up, and when the last goes out
-CLICK1, HOLD1, MIDDLE1, RELEASE1 = 2.2, 4.4, 6.9, 9.7
-MOVE1 = (7.4, 8.0)
+# Every step holds still for HOLD seconds once its result is on the screen, so the whole chain can be
+# read in turn: the mouse button, the lit step, then what the monitors show. Clicks and presses leave a
+# decal where they landed for the same time. The 4.5 + 1 + 4 segments of the progress bar follow along.
+HOLD = 3.5
+# Pass 1
+S1A = 1.0                    # each step lights up 0.2 s after the one before it goes out
+CUR1 = (S1A, S1A + 0.6)      # the cursor travels to the blue window's icon
+CLICK1 = S1A + 0.8
+E1A = CLICK1 + 0.3 + HOLD    # when step 1 goes out
+S2A = E1A + 0.2
+HOLD1 = S2A + 0.4
+E2A = HOLD1 + 0.1 + HOLD
+S3A = E2A + 0.2
+MIDDLE1 = S3A + 0.4
+MOVE1 = (MIDDLE1 + 0.5, MIDDLE1 + 1.1)
+E3A = MOVE1[1] + HOLD
+S4A = E3A + 0.2
+RELEASE1 = S4A + 0.4
+E4A = RELEASE1 + 0.1 + HOLD
 # Between the passes: the heading changes, then a finger turns the right monitor off
-HEAD = 11.3
-FINGER = (11.6, 12.2, 12.6, 13.2)   # in, pressing, lifting, gone
-OFF = (12.3, 12.6)
-# Pass 2, quicker
-CUR2 = (13.4, 13.9)          # the cursor moves from the blue icon to the red one
-S1B, S2B, S3B, S4B, END2 = 13.6, 15.4, 16.9, 19.2, 20.6
-CLICK2, HOLD2, MIDDLE2, RELEASE2 = 14.2, 15.7, 17.3, 19.6
-MOVE2 = (17.7, 18.3)
-CUR_OUT = (20.6, 21.4)       # the cursor leaves the screen: that was the end
+HEAD = E4A + 0.2
+SP = HEAD + 0.2
+FINGER = (SP + 0.2, SP + 0.8, SP + 1.4, SP + 2.0)   # in, pressing, lifting, gone
+PRESS = FINGER[1]
+OFF = (PRESS + 0.1, PRESS + 0.4)
+EP = OFF[1] + HOLD
+# Pass 2, the same steps
+S1B = EP + 0.2
+CUR2 = (S1B, S1B + 0.5)      # the cursor moves from the blue icon to the red one
+CLICK2 = S1B + 0.7
+E1B = CLICK2 + 0.3 + HOLD
+S2B = E1B + 0.2
+HOLD2 = S2B + 0.4
+E2B = HOLD2 + 0.1 + HOLD
+S3B = E2B + 0.2
+MIDDLE2 = S3B + 0.4
+MOVE2 = (MIDDLE2 + 0.5, MIDDLE2 + 1.1)
+E3B = MOVE2[1] + HOLD
+S4B = E3B + 0.2
+RELEASE2 = S4B + 0.4
+E4B = RELEASE2 + 0.1 + HOLD
+CUR_OUT = (E4B, E4B + 0.8)   # the cursor leaves the screen: that was the end
+T = E4B + 1.8
+TS = f"{T:g}s infinite"      # loops; the "loop" track fades the picture out and back in at the seam
+
+# The progress bar's segments: pass 1's four steps, the power button, pass 2's four steps
+SEGMENTS = ((S1A, E1A), (S2A, E2A), (S3A, E3A), (S4A, E4A), (SP, EP), (S1B, E1B), (S2B, E2B), (S3B, E3B), (S4B, E4B))
+
+# The clicks, each held to the end of its step: the left clicks on the icons, the middle clicks
+TAPS = ((CLICK1, E1A), (MIDDLE1, E3A), (CLICK2, E1B), (MIDDLE2, E3B))
 
 FINGER_AWAY = "opacity: 0; transform: translate(34px, 70px)"
 TRACKS = [
@@ -91,27 +128,33 @@ TRACKS = [
     op("head1", [(0, 1), (HEAD, 1), (HEAD + 0.2, 0)]),
     op("head2", [(0, 0), (HEAD + 0.2, 0), (HEAD + 0.4, 1)]),
     # the steps: lit one at a time, faint otherwise
-    shown("step1", (S1A, S2A - 0.2), (S1B, S2B - 0.2)),
-    shown("step2", (S2A, S3A - 0.2), (S2B, S3B - 0.2)),
-    shown("step3", (S3A, S4A - 0.2), (S3B, S4B - 0.2)),
-    shown("step4", (S4A, END1), (S4B, END2)),
+    shown("step1", (S1A, E1A), (S1B, E1B)),
+    shown("step2", (S2A, E2A), (S2B, E2B)),
+    shown("step3", (S3A, E3A), (S3B, E3B)),
+    shown("step4", (S4A, E4A), (S4B, E4B)),
     # leaders to the mouse: Mouse4's stays up while it is held, through the middle click
-    shown("lead1", (S1A, S2A - 0.2), (S1B, S2B - 0.2)),
-    shown("lead2", (S2A, S4A - 0.2), (S2B, S4B - 0.2)),
-    shown("lead3", (S3A, S4A - 0.2), (S3B, S4B - 0.2)),
-    shown("lead4", (S4A, END1), (S4B, END2)),
-    # leaders to the screen: step 1 to the icon clicked, step 3 the path the window takes
-    shown("icon1", (S1A, S2A - 0.2)),
-    shown("icon2", (S1B, S2B - 0.2)),
-    shown("path1", (MIDDLE1, MOVE1[1])),
-    shown("path2", (MIDDLE2, MOVE2[1])),
-    # the mouse's buttons: Mouse4 held, left click, middle click
+    shown("lead1", (S1A, E1A), (S1B, E1B)),
+    shown("lead2", (S2A, E3A), (S2B, E3B)),
+    shown("lead3", (S3A, E3A), (S3B, E3B)),
+    shown("lead4", (S4A, E4A), (S4B, E4B)),
+    # leaders to the screen: step 1 to the icon clicked, step 3 the path the window took
+    shown("icon1", (S1A, E1A)),
+    shown("icon2", (S1B, E1B)),
+    shown("path1", (MIDDLE1, E3A)),
+    shown("path2", (MIDDLE2, E3B)),
+    # the mouse's buttons stay lit to the end of their step: Mouse4 while held, the left and middle clicks
     shown("side", (HOLD1, RELEASE1), (HOLD2, RELEASE2), fade=0.1),
-    shown("left", (CLICK1, CLICK1 + 0.9), (CLICK2, CLICK2 + 0.7), fade=0.1),
-    shown("wheel", (MIDDLE1, MIDDLE1 + 0.6), (MIDDLE2, MIDDLE2 + 0.5), fade=0.05),
-    # click rings on the icons, and on the window at the middle click
+    shown("left", (CLICK1, E1A), (CLICK2, E1B), fade=0.1),
+    shown("wheel", (MIDDLE1, E3A), (MIDDLE2, E3B), fade=0.1),
+    # click rings on the icons as they are clicked, then a decal held where each click or press landed
     track("ring1", [(0, RING_OFF), (CLICK1, RING_OFF), (CLICK1 + 0.05, RING_ON), (CLICK1 + 1.1, RING_END)]),
     track("ring1b", [(0, RING_OFF), (CLICK2, RING_OFF), (CLICK2 + 0.05, RING_ON), (CLICK2 + 0.9, RING_END)]),
+    shown("tap1", *TAPS[:2], fade=0.1),
+    shown("tap2", *TAPS[2:], fade=0.1),
+    shown("tapp", (PRESS, EP), fade=0.1),
+    # the cursor is a pointing hand while a click's decal is up, an arrow otherwise
+    shown("hand", *TAPS, fade=0.1),
+    op("arrow", [(0, 1)] + [s for a, b in TAPS for s in ((a, 1), (a + 0.1, 0), (b, 0), (b + 0.1, 1))]),
     # focus: the blue icon's active state, the red icon's, and the window that has focus at the start
     op("sel", [(0, 0), (CLICK1, 0), (CLICK1 + 0.2, 1), (CLICK2, 1), (CLICK2 + 0.3, 0)]),
     op("selr", [(0, 0), (CLICK2, 0), (CLICK2 + 0.2, 1)]),
@@ -120,7 +163,7 @@ TRACKS = [
     op("windim", [(0, 1), (CLICK1, 1), (CLICK1 + 0.3, 0), (CLICK2, 0), (CLICK2 + 0.3, 1)]),
     op("winvis", [(0, 0), (CLICK1, 0), (CLICK1 + 0.3, 1), (CLICK2, 1), (CLICK2 + 0.3, 0)]),
     tx("hop", [(0, XDX, EASE), (MOVE1[0], XDX, EASE), (MOVE1[1], X0)]),
-    shown("landed", (MIDDLE1, MOVE1[1] + 0.2), fade=0.05),
+    shown("landed", (MIDDLE1, E3A), fade=0.05),
     # the right monitor goes dark, pressed off by a finger
     op("off2", [(0, 0), (OFF[0], 0), (OFF[1], 1)]),
     op("led2on", [(0, 1), (OFF[0], 1), (OFF[1], 0)]),
@@ -131,7 +174,9 @@ TRACKS = [
     op("ghostf", [(0, 0), (CLICK2, 0), (CLICK2 + 0.3, 1), (MOVE2[0], 1), (MOVE2[0] + 0.6, 0)]),
     op("redvis", [(0, 0), (MOVE2[0], 0), (MOVE2[0] + 0.5, 1)]),
     tx("hop2", [(0, XDX, EASE), (MOVE2[0], XDX, EASE), (MOVE2[1], X0)]),
-    shown("landed2", (MIDDLE2, MOVE2[1] + 0.2), fade=0.05),
+    shown("landed2", (MIDDLE2, E3B), fade=0.05),
+    # the progress bar: a segment is bright while its step is on, half lit once it is done
+    *[op(f"pg{i}", [(0, 0), (a, 0), (a + 0.2, 1), (b, 1), (b + 0.2, 0.4)]) for i, (a, b) in enumerate(SEGMENTS)],
     # fades the whole picture in at the start and out at the end, so the loop restarts without a jump
     op("loop", [(0, 0), (0.5, 1), (T - 0.8, 1), (T, 0)]),
 ]
@@ -263,8 +308,39 @@ def to_icon(icon_x):
     return f"{STEP1_END + 6},{row(0)} {MX + 29},{row(0)} {MX + 29},179.3 {x},179.3 {x},176"
 
 
+def rays(cls, cx, cy, angles, r0, r1):
+    """A click decal: short orange rays out from the point clicked or pressed, at the given angles (degrees, 270 is up)."""
+    d = " ".join(f"M{cx + r0 * cos(radians(a)):.2f} {cy + r0 * sin(radians(a)):.2f} L{cx + r1 * cos(radians(a)):.2f} {cy + r1 * sin(radians(a)):.2f}"
+                 for a in angles)
+    return f'<path class="{cls}" d="{d}" fill="none" stroke="{ORANGE}" stroke-width="2" stroke-linecap="round"/>'
+
+
+CLICK_FAN = (195, 233, 270, 307, 345)   # the rays fanned over a pointing hand's fingertip
+# A pointing hand, the cursor while it clicks: index finger up, its tip at (0, 0)
+HAND = ('<path transform="translate(-4.9 0) scale(0.95)" d="M2.6 13 V2.6 A2.6 2.6 0 0 1 7.8 2.6 V9 A2.1 2.1 0 0 1 12 9.6 '
+        'A2.1 2.1 0 0 1 16.2 10.4 A2 2 0 0 1 20.2 11.4 V17 Q20.2 24 13.6 24 H10.2 Q5.6 24 3.4 19.6 L0.4 14.6 '
+        'A1.9 1.9 0 0 1 3.4 12.4 Z M7.8 9 V12.6 M12 9.6 V13 M16.2 10.4 V13.4" '
+        'fill="#ffffff" stroke="#0d1117" stroke-width="1" stroke-linejoin="round"/>')
+
+
+# The progress bar, under the steps: a segment per step, the power button's on its own between the passes
+PG_X, PG_Y, PG_W, PG_GAP, PG_SPLIT = BULLET_X - 4, 226, 22, 4, 14
+
+
+def progress(FAINT, n, splits=()):
+    """n segments, classes pg0 to pg{n-1}, with a wider gap after each segment in splits."""
+    xs, x = [], PG_X
+    for i in range(n):
+        xs.append(x)
+        x += PG_W + (PG_SPLIT if i in splits else PG_GAP)
+    base = "".join(f'<rect x="{x}" y="{PG_Y}" width="{PG_W}" height="5" rx="2.5" fill="{FAINT}" opacity="0.45"/>' for x in xs)
+    lit = "".join(f'<rect class="pg{i}" x="{x}" y="{PG_Y}" width="{PG_W}" height="5" rx="2.5" fill="{ORANGE}"/>' for i, x in enumerate(xs))
+    return f'<g class="pgbar">{base}{lit}</g>'
+
+
 def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LINE, MOUSE_BTN):
     lead = f'fill="none" stroke="{ORANGE}" stroke-width="1.6" stroke-linejoin="round"'
+    pg_css = "\n".join(f"      .pg{i} {{ animation: pg{i} {TS}; }}" for i in range(len(SEGMENTS)))
     steps = "\n    ".join(
         f'<circle cx="{BULLET_X}" cy="{row(i)}" r="3" fill="{FAINT}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{FAINT}">{s}</text>'
         f'<g class="st{i + 1}"><circle cx="{BULLET_X}" cy="{row(i)}" r="3.5" fill="{ORANGE}"/><text x="{TEXT_X}" y="{ROWS[i]}" fill="{BRIGHT}">{s}</text></g>'
@@ -278,9 +354,16 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
     .cur {{ transform: translate(22px, 0); }}
     .selr, .off2, .windim, .redvis, .head2 {{ opacity: 1; }}
     .hit, .hit2, .ring1, .ring1b, .left, .wheel, .side, .xact, .sel, .winvis, .ghost2, .ghostf, .led2on, .head1, .finger,
-    .st1, .st2, .st3, .st4, .lead1, .lead2, .lead3, .lead4, .icon1, .icon2, .path1, .path2 {{ opacity: 0; }}
+    .st1, .st2, .st3, .st4, .lead1, .lead2, .lead3, .lead4, .icon1, .icon2, .path1, .path2, .tap1, .tap2, .tapp, .hand, .pgbar {{ opacity: 0; }}
     .ring1, .ring1b {{ transform-box: fill-box; transform-origin: center; }}
     @media (prefers-reduced-motion: no-preference) {{
+      .pgbar {{ opacity: 1; }}
+{pg_css}
+      .tap1  {{ animation: tap1 {TS}; }}
+      .tap2  {{ animation: tap2 {TS}; }}
+      .tapp  {{ animation: tapp {TS}; }}
+      .hand  {{ animation: hand {TS}; }}
+      .arrow {{ animation: arrow {TS}; }}
       .cur    {{ animation: cur {TS}; }}
       .head1  {{ animation: head1 {TS}; }}
       .head2  {{ animation: head2 {TS}; }}
@@ -347,6 +430,7 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
     <text class="head2" x="{BULLET_X - 4}" y="48" font-size="16" font-weight="600" fill="{BRIGHT}">The right monitor turned off</text>
     {steps}
   </g>
+  {progress(FAINT, len(SEGMENTS), (3, 4))}
   <g {lead}>
     <polyline class="lead1" points="{LEAD1}"/>
     <polyline class="lead2" points="{LEAD2}"/>
@@ -476,7 +560,13 @@ def build(PAGE, LABEL, BRIGHT, FAINT, STAND, OUTLINE, OUTLINE_W, MOUSE, MOUSE_LI
     <!-- click rings (blue icon, then red icon) and the cursor that travels between them -->
     <circle class="ring1" cx="64" cy="169" r="3" fill="none" stroke="{ORANGE}" stroke-width="1"/>
     <circle class="ring1b" cx="86" cy="169" r="3" fill="none" stroke="{ORANGE}" stroke-width="1"/>
-    <g class="cur"><polygon points="0,0 0,12 3,9 5.5,14 7.5,13 5,8 9,8" transform="translate(64 169)" fill="#ffffff" stroke="#0d1117" stroke-width="0.6"/></g>
+    {rays("tap1", 64, 168, CLICK_FAN, 4.5, 10)}
+    {rays("tap2", 86, 168, CLICK_FAN, 4.5, 10)}
+    {rays("tapp", 262 + DX, 190, range(0, 360, 45), 9, 13)}
+    <g class="cur"><g transform="translate(64 169)">
+      <polygon class="arrow" points="0,0 0,12 3,9 5.5,14 7.5,13 5,8 9,8" fill="#ffffff" stroke="#0d1117" stroke-width="0.6"/>
+      <g class="hand">{HAND}</g>
+    </g></g>
 
     <!-- the finger that turns monitor 2 off, its tip on the power button -->
     <g transform="translate({262 + DX} 190)">
