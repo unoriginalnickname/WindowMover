@@ -81,8 +81,7 @@ internal static class SystemTrayIcon
             "Hold Mouse4: select pull (to the monitor your cursor is on)\n" +
             "Hold Mouse5: select cycle (to the next monitor)\n" +
             "Middle-click: activate the selected action\n" +
-            "Hold Ctrl+Shift and scroll: make the focused window bigger or smaller
-" +
+            "Hold Ctrl+Shift and scroll: make the focused window bigger or smaller\n" +
             "Hold Ctrl+Shift and press Mouse4 / Mouse5: fill the left / right half of the screen",
             "About", MessageBoxButtons.OK, MessageBoxIcon.Information));
         trayMenu.Items.Add(new ToolStripSeparator());
