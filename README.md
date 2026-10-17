@@ -39,6 +39,11 @@ grows past the screen; once one side reaches the edge, only the other keeps
 growing. Scrolling down on a maximized window takes it out of maximized and
 shrinks it from full screen.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/resize-window-dark.svg">
+  <img src="docs/resize-window-light.svg" alt="A mouse with Ctrl and Shift keys above it, four steps and one monitor. With Ctrl and Shift held, the wheel scrolls up and the focused blue window grows a notch at a time until it reaches the top of the screen, then scrolls down and the window shrinks below its starting size, which a dashed outline marks. Then Ctrl and Shift are released.">
+</picture>
+
 While Ctrl+Shift is held and the focused window can be resized, the wheel does not
 reach the app, so it neither scrolls nor zooms. Plain Shift is left alone because
 most apps use Shift + scroll to scroll sideways. If you have more than one keyboard
